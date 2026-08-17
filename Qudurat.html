@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>قُدرات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-firestore.js"></script>
+<style>
+:root{
+  --bg:#12172B; --bg-2:#0D1122;
+  --surface:#1B2140; --surface-2:#232A4D; --surface-3:#2B3260;
+  --text:#EDEAE0; --text-dim:#A7ACC8; --text-faint:#6B7196;
+  --accent:#E8B44C; --accent-dim:#3A3221;
+  --accent2:#4FA8A0;
+  --danger:#E2637A; --danger-dim:#3A2530;
+  --success:#6FCF97; --success-dim:#1E3A2C;
+  --border:rgba(237,234,224,.12);
+  --radius:16px; --radius-sm:10px;
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:radial-gradient(circle at 20% -10%, #1B2140 0%, var(--bg) 45%, var(--bg-2) 100%);
+  background-attachment:fixed;
+  color:var(--text);
+  font-family:'IBM Plex Sans Arabic','Tajawal',sans-serif;
+  min-height:100vh;
+}
+h1,h2,h3,.display{font-family:'Tajawal',sans-serif;}
+button{font-family:inherit;cursor:pointer;}
+::selection{background:var(--accent);color:#12172B;}
+#app{max-width:640px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:40px;}
+
+/* ---- topbar ---- */
+.topbar{position:sticky;top:0;z-index:20;height:60px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;background:rgba(18,23,43,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);}
+.icon-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);display:flex;align-items:center;justify-content:center;transition:.15s;}
+.icon-btn:hover{background:var(--surface-3);border-color:var(--accent);}
+.topbar-title{font-weight:700;color:var(--text-dim);font-size:14px;letter-spacing:.5px;}
+
+/* ---- drawer ---- */
+.overlay{position:fixed;inset:0;background:rgba(6,8,16,.6);z-index:29;opacity:0;pointer-events:none;transition:.25s;}
+.overlay.open{opacity:1;pointer-events:auto;}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:78%;max-width:320px;background:var(--surface);z-index:30;
+  transform:translateX(100%);transition:.3s cubic-bezier(.4,0,.2,1);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;padding:20px 0;}
+.drawer.open{transform:translateX(0);}
+.drawer-head{padding:0 20px 16px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+.drawer-head .num{font-family:'Tajawal';font-weight:800;font-size:22px;color:var(--accent);}
+.drawer-head .tag{color:var(--text-faint);font-size:12px;}
+.drawer-item{display:flex;align-items:center;gap:12px;padding:14px 20px;color:var(--text);text-decoration:none;
+  border-right:3px solid transparent;transition:.15s;font-size:15px;}
+.drawer-item:hover,.drawer-item.active{background:var(--surface-2);border-right-color:var(--accent);}
+.drawer-item .ic{width:20px;text-align:center;color:var(--accent2);}
+
+/* ---- content ---- */
+.page{padding:20px 16px 12px;animation:fadein .25s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.section-title{font-size:22px;font-weight:800;margin:4px 0 18px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;}
+.stat-card:before{content:'';position:absolute;top:-20px;left:-20px;width:70px;height:70px;background:var(--accent);opacity:.08;border-radius:50%;}
+.stat-num{font-family:'Tajawal';font-size:28px;font-weight:800;color:var(--accent);}
+.stat-label{font-size:12.5px;color:var(--text-dim);margin-top:4px;}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:12px;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-weight:600;font-size:14.5px;transition:.15s;width:100%;}
+.btn:hover{background:var(--surface-3);}
+.btn-primary{background:var(--accent);color:#1a1408;border-color:var(--accent);}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-outline{background:transparent;border:1px solid var(--accent2);color:var(--accent2);}
+.btn-danger{background:transparent;border:1px solid var(--danger);color:var(--danger);}
+.btn-row{display:flex;gap:10px;}
+.btn-sm{width:auto;padding:8px 14px;font-size:13px;}
+
+.list-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:10px;transition:.15s;cursor:pointer;}
+.list-item:hover{border-color:var(--accent2);}
+.list-item .title{font-weight:700;font-size:15.5px;}
+.list-item .sub{font-size:12px;color:var(--text-faint);margin-top:3px;}
+.chip{font-size:11px;background:var(--surface-3);color:var(--text-dim);padding:3px 9px;border-radius:20px;}
+.chip-danger{background:var(--danger-dim);color:var(--danger);}
+.chip-success{background:var(--success-dim);color:var(--success);}
+.icon-action{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;color:var(--text-dim);flex-shrink:0;}
+.icon-action:hover{border-color:var(--danger);color:var(--danger);}
+
+input[type=text],input[type=number],textarea,select{
+  width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-2);
+  color:var(--text);font-family:inherit;font-size:14.5px;margin-bottom:12px;}
+textarea{resize:vertical;min-height:100px;}
+label{display:block;font-size:13px;color:var(--text-dim);margin-bottom:6px;font-weight:600;}
+.field{margin-bottom:14px;}
+
+/* login */
+.login-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;}
+.login-mark{font-family:'Tajawal';font-weight:900;font-size:44px;letter-spacing:2px;color:var(--accent);position:relative;}
+.login-mark:after{content:'';display:block;width:70px;height:6px;background:var(--accent);margin:10px auto 0;border-radius:4px;opacity:.5;}
+.login-sub{color:var(--text-dim);margin:10px 0 34px;font-size:14px;}
+.login-box{width:100%;max-width:340px;}
+
+/* quiz */
+.progress-wrap{height:6px;background:var(--surface-2);border-radius:6px;overflow:hidden;margin-bottom:18px;}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:6px;transition:.3s;}
+.q-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:12.5px;color:var(--text-faint);}
+.q-tag{color:var(--accent);font-weight:700;}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.q-instruction{color:var(--accent2);font-weight:700;font-size:13.5px;margin-bottom:10px;}
+.q-text{font-size:17px;line-height:1.9;font-weight:600;margin-bottom:6px;}
+.q-passage-link{font-size:12.5px;color:var(--accent2);text-decoration:underline;cursor:pointer;margin-bottom:10px;display:inline-block;}
+.answer{display:flex;align-items:center;gap:12px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);padding:13px 14px;margin-bottom:10px;transition:.15s;cursor:pointer;}
+.answer:hover{border-color:var(--accent2);}
+.answer.selected{border-color:var(--accent);background:var(--accent-dim);}
+.answer .letter{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--text-faint);display:flex;
+  align-items:center;justify-content:center;font-size:12.5px;font-weight:700;flex-shrink:0;color:var(--text-dim);}
+.answer.selected .letter{background:var(--accent);border-color:var(--accent);color:#1a1408;}
+.answer.correct{border-color:var(--success);background:var(--success-dim);}
+.answer.correct .letter{background:var(--success);border-color:var(--success);color:#0c2016;}
+.answer.wrong{border-color:var(--danger);background:var(--danger-dim);}
+.answer.wrong .letter{background:var(--danger);border-color:var(--danger);color:#2c0f16;}
+.quiz-tools{display:flex;gap:10px;margin-bottom:14px;}
+.tool-btn{width:44px;height:44px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-dim);display:flex;align-items:center;justify-content:center;transition:.15s;}
+.tool-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+.tool-btn.review-active{border-color:var(--accent2);color:var(--accent2);background:rgba(79,168,160,.12);}
+
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(6,8,16,.7);z-index:50;display:flex;align-items:flex-end;justify-content:center;}
+.modal-overlay.center{align-items:center;padding:16px;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;max-width:640px;width:100%;
+  max-height:82vh;overflow-y:auto;padding:20px;}
+.modal-overlay.center .modal{border-radius:var(--radius);}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.modal-close{width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;color:var(--text-dim);}
+
+.empty{text-align:center;padding:50px 20px;color:var(--text-faint);}
+.empty .ic{font-size:34px;margin-bottom:10px;opacity:.5;}
+.divider{height:1px;background:var(--border);margin:18px 0;}
+.hidden{display:none !important;}
+.type-badge{display:inline-block;font-size:11px;background:var(--surface-3);color:var(--accent2);padding:4px 10px;border-radius:8px;margin-bottom:8px;}
+.small-note{font-size:12px;color:var(--text-faint);line-height:1.7;}
+.pill-select{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.pill{padding:9px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:13px;color:var(--text-dim);}
+.pill.active{background:var(--accent);color:#1a1408;border-color:var(--accent);font-weight:700;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface-3);border:1px solid var(--accent);
+  color:var(--text);padding:12px 20px;border-radius:12px;font-size:13.5px;z-index:60;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{opacity:1;bottom:34px;}
+.loader{text-align:center;padding:60px 20px;color:var(--text-faint);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+/* ================= Firebase ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBbZtSY_IIyH0cXsWX3lbyIN4UwLD_5j04",
+  authDomain: "qudurat-2da37.firebaseapp.com",
+  projectId: "qudurat-2da37",
+  storageBucket: "qudurat-2da37.firebasestorage.app",
+  messagingSenderId: "565850407112",
+  appId: "1:565850407112:web:94f1b6b5edf501c675e5fd"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const FieldValue = firebase.firestore.FieldValue;
+
+/* ================= constants ================= */
+const QTYPES = {
+  contextual_error: { label:'الخطأ السياقي', instruction:'استخرج الخطأ السياقي' },
+  analogy: { label:'التناظر اللفظي', instruction:'استخرج التناظر' },
+  reading: { label:'فهم المقروء', instruction:'استخرج المطلوب من النص:' },
+  odd_word: { label:'المفردة الشاذة', instruction:'استخرج المفردة الشاذة' },
+  sentence_completion: { label:'إكمال الجمل', instruction:'أكمل الجملة الآتية:' }
+};
+const LETTERS = ['أ','ب','ج','د'];
+
+/* ================= state ================= */
+let state = {
+  userNumber:null, isAdmin:false,
+  sections:[], sectionsLoaded:false,
+  drawerOpen:false,
+  route:{name:'login', params:{}},
+  quiz:null, // active quiz session
+  cache:{}
+};
+
+/* ================= helpers ================= */
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function fmtDuration(sec){
+  sec=Math.max(0,Math.round(sec));
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  if(h>0) return `${h}س ${m}د ${s}ث`;
+  if(m>0) return `${m}د ${s}ث`;
+  return `${s}ث`;
+}
+function fmtDate(ts){
+  if(!ts) return '-';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('ar-SA',{year:'numeric',month:'short',day:'numeric'});
+}
+function fmtTime(ts){
+  if(!ts) return '-';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+}
+function nav(name, params={}){
+  state.route={name,params}; state.drawerOpen=false; render();
+  window.scrollTo(0,0);
+}
+async function sessionSave(num,isAdmin){
+  try{ localStorage.setItem('qudurat_session', JSON.stringify({num,isAdmin})); }catch(e){}
+}
+async function sessionLoad(){
+  try{ const r=localStorage.getItem('qudurat_session'); if(r) return JSON.parse(r); }catch(e){}
+  return null;
+}
+async function sessionClear(){ try{ localStorage.removeItem('qudurat_session'); }catch(e){} }
+
+/* ================= data layer ================= */
+async function findOrCreateUser(number){
+  const isAdmin = number === '330';
+  const ref = db.collection('users').doc(number);
+  const snap = await ref.get();
+  if(!snap.exists){
+    await ref.set({ number, isAdmin, createdAt: FieldValue.serverTimestamp() });
+  }
+  return { number, isAdmin };
+}
+async function loadSections(force){
+  if(state.sectionsLoaded && !force) return state.sections;
+  const snap = await db.collection('sections').orderBy('createdAt','asc').get();
+  state.sections = snap.docs.map(d=>({id:d.id,...d.data()}));
+  state.sectionsLoaded = true;
+  return state.sections;
+}
+async function addSection(name){
+  const ref = await db.collection('sections').add({name, createdAt:FieldValue.serverTimestamp()});
+  state.sectionsLoaded=false;
+  return ref.id;
+}
+async function updateSection(id,name){
+  await db.collection('sections').doc(id).update({name});
+  state.sectionsLoaded=false;
+}
+async function deleteSection(id){
+  const qs = await db.collection('questions').where('sectionId','==',id).get();
+  const batch = db.batch();
+  qs.docs.forEach(d=>batch.delete(d.ref));
+  batch.delete(db.collection('sections').doc(id));
+  await batch.commit();
+  state.sectionsLoaded=false;
+}
+async function getQuestions(sectionId){
+  const snap = await db.collection('questions').where('sectionId','==',sectionId).get();
+  const list = snap.docs.map(d=>({id:d.id,...d.data()}));
+  list.sort((a,b)=> (a.createdAt?.seconds||0) - (b.createdAt?.seconds||0));
+  return list;
+}
+async function getAllQuestions(){
+  const snap = await db.collection('questions').get();
+  return snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+async function addQuestion(sectionId,type,data){
+  await db.collection('questions').add({sectionId,type,...data,createdAt:FieldValue.serverTimestamp()});
+}
+async function updateQuestion(id,type,data){
+  await db.collection('questions').doc(id).update({type,...data});
+}
+async function deleteQuestion(id){
+  await db.collection('questions').doc(id).delete();
+  await db.collection('users').doc(state.userNumber||'').collection('wrong').doc(id).delete().catch(()=>{});
+}
+
+async function addAttempt(userNumber, attempt){
+  const ref = await db.collection('users').doc(userNumber).collection('attempts').add({
+    ...attempt, createdAt:FieldValue.serverTimestamp()
+  });
+  return ref.id;
+}
+async function getAttempts(userNumber){
+  const snap = await db.collection('users').doc(userNumber).collection('attempts').orderBy('createdAt','desc').get();
+  return snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+async function getAttempt(userNumber, id){
+  const d = await db.collection('users').doc(userNumber).collection('attempts').doc(id).get();
+  return d.exists ? {id:d.id,...d.data()} : null;
+}
+
+async function setWrong(userNumber, q){
+  await db.collection('users').doc(userNumber).collection('wrong').doc(q.id).set({
+    questionId:q.id, sectionId:q.sectionId, type:q.type, addedAt:FieldValue.serverTimestamp()
+  });
+}
+async function clearWrong(userNumber, questionId){
+  await db.collection('users').doc(userNumber).collection('wrong').doc(questionId).delete();
+}
+async function getWrongList(userNumber){
+  const snap = await db.collection('users').doc(userNumber).collection('wrong').orderBy('addedAt','desc').get();
+  return snap.docs.map(d=>d.data());
+}
+async function toggleSaved(userNumber, q, save){
+  const ref = db.collection('users').doc(userNumber).collection('saved').doc(q.id);
+  if(save){ await ref.set({questionId:q.id, sectionId:q.sectionId, type:q.type, addedAt:FieldValue.serverTimestamp()}); }
+  else{ await ref.delete(); }
+}
+async function getSavedList(userNumber){
+  const snap = await db.collection('users').doc(userNumber).collection('saved').orderBy('addedAt','desc').get();
+  return snap.docs.map(d=>d.data());
+}
+async function isSaved(userNumber, questionId){
+  const d = await db.collection('users').doc(userNumber).collection('saved').doc(questionId).get();
+  return d.exists;
+}
+
+async function adminStats(){
+  const [secSnap, qSnap, attSnap] = await Promise.all([
+    db.collection('sections').get(),
+    db.collection('questions').get(),
+    db.collectionGroup('attempts').get()
+  ]);
+  return { sections:secSnap.size, questions:qSnap.size, attempts:attSnap.size };
+}
+async function userStats(userNumber){
+  const attempts = await getAttempts(userNumber);
+  const bySection = new Set(attempts.filter(a=>a.sectionId && a.sectionId!=='all').map(a=>a.sectionId));
+  let totalScore=0,totalQ=0,totalTime=0;
+  attempts.forEach(a=>{ totalScore+=a.score||0; totalQ+=a.total||0; totalTime+=a.durationSeconds||0; });
+  return {
+    testedSections:bySection.size,
+    totalAttempts:attempts.length,
+    totalScore, totalQ,
+    avgPercent: totalQ? Math.round((totalScore/totalQ)*100):0,
+    totalTime,
+    avgTime: attempts.length? Math.round(totalTime/attempts.length):0
+  };
+}
+
+/* ================= question rendering helpers ================= */
+function questionPrompt(q){
+  if(q.type==='reading') return q.question;
+  if(q.type==='contextual_error' || q.type==='analogy') return q.sentence || (q.word1? `${q.word1} : ${q.word2}`:'');
+  if(q.type==='sentence_completion') return q.sentence;
+  if(q.type==='odd_word') return '';
+  return q.sentence||q.question||'';
+}
+function answerLabel(q, idx){
+  if(q.type==='analogy'){
+    const a=q.answers[idx];
+    return `${a.w1} : ${a.w2}`;
+  }
+  return q.answers[idx];
+}
+function questionSummaryText(q){
+  if(q.type==='reading') return q.question;
+  if(q.type==='analogy') return `${q.word1} : ${q.word2}`;
+  return q.sentence || '';
+}
+
+/* ================= DRAWER + TOPBAR ================= */
+function renderTopbar(){
+  return `
+  <div class="topbar">
+    <button class="icon-btn" onclick="doLogout()" title="تسجيل الخروج">${iconLogout()}</button>
+    <div class="topbar-title">${state.isAdmin?'لوحة المشرف':'قُدرات'}</div>
+    <button class="icon-btn" onclick="toggleDrawer(true)" title="القائمة">${iconMenu()}</button>
+  </div>`;
+}
+function renderDrawer(){
+  const userItems = `
+    <a class="drawer-item ${state.route.name==='sections'?'active':''}" onclick="nav('sections')"><span class="ic">${iconGrid()}</span> الأقسام</a>
+    <a class="drawer-item ${state.route.name==='wrong'?'active':''}" onclick="nav('wrong')"><span class="ic">${iconX()}</span> الأسئلة الخاطئة</a>
+    <a class="drawer-item ${state.route.name==='saved'?'active':''}" onclick="nav('saved')"><span class="ic">${iconBookmark()}</span> الأسئلة المحفوظة</a>
+    <a class="drawer-item ${state.route.name==='history'?'active':''}" onclick="nav('history')"><span class="ic">${iconClock()}</span> سجل اختبارات الأقسام</a>
+    <a class="drawer-item ${state.route.name==='home'?'active':''}" onclick="nav('home')"><span class="ic">${iconHome()}</span> الرئيسية</a>
+  `;
+  const adminItems = `
+    <a class="drawer-item ${state.route.name==='admin-sections'?'active':''}" onclick="nav('admin-sections')"><span class="ic">${iconGrid()}</span> إدارة الأقسام</a>
+    <a class="drawer-item ${state.route.name==='home'?'active':''}" onclick="nav('home')"><span class="ic">${iconHome()}</span> الرئيسية</a>
+  `;
+  return `
+  <div class="overlay ${state.drawerOpen?'open':''}" onclick="toggleDrawer(false)"></div>
+  <div class="drawer ${state.drawerOpen?'open':''}">
+    <div class="drawer-head">
+      <div class="num">${state.userNumber||''}</div>
+      <div class="tag">${state.isAdmin?'حساب المشرف':'حساب مستخدم'}</div>
+    </div>
+    ${state.isAdmin?adminItems:userItems}
+  </div>`;
+}
+function toggleDrawer(v){ state.drawerOpen=v; render(); }
+async function doLogout(){
+  await sessionClear();
+  state = {userNumber:null,isAdmin:false,sections:[],sectionsLoaded:false,drawerOpen:false,route:{name:'login',params:{}},quiz:null,cache:{}};
+  render();
+}
+
+/* ================= icons (inline svg, stroke=currentColor) ================= */
+function svgIcon(path, extra=''){ return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${path}</svg>`; }
+function iconMenu(){ return svgIcon('<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>'); }
+function iconLogout(){ return svgIcon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>'); }
+function iconHome(){ return svgIcon('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'); }
+function iconGrid(){ return svgIcon('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>'); }
+function iconX(){ return svgIcon('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'); }
+function iconBookmark(filled){ return svgIcon('<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>', filled?'fill="currentColor"':''); }
+function iconCircle(filled){ return svgIcon('<circle cx="12" cy="12" r="9"/>', filled?'fill="currentColor" fill-opacity="0.25"':''); }
+function iconClock(){ return svgIcon('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'); }
+function iconTrash(){ return svgIcon('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'); }
+function iconEdit(){ return svgIcon('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>'); }
+function iconPlus(){ return svgIcon('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'); }
+function iconClose(){ return svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'); }
+function iconChev(){ return svgIcon('<polyline points="15 18 9 12 15 6"/>'); }
+
+/* ================= LOGIN ================= */
+function renderLogin(){
+  return `
+  <div class="login-wrap">
+    <div class="login-mark">قُدرات</div>
+    <div class="login-sub">أدخل رقم المستخدم للمتابعة</div>
+    <div class="login-box">
+      <input type="text" inputmode="numeric" id="loginInput" placeholder="رقم المستخدم" style="text-align:center;font-size:18px;letter-spacing:1px;">
+      <button class="btn btn-primary" style="padding:14px;" onclick="doLogin()">دخول</button>
+      <div class="small-note" style="margin-top:14px;">إذا كان الرقم غير مسجّل سابقاً، سيتم إنشاء حساب جديد تلقائياً.</div>
+    </div>
+  </div>`;
+}
+async function doLogin(){
+  const val = document.getElementById('loginInput').value.trim();
+  if(!val){ toast('أدخل رقم المستخدم'); return; }
+  document.getElementById('app').innerHTML = `<div class="loader">جارِ الدخول...</div>`;
+  try{
+    const u = await findOrCreateUser(val);
+    state.userNumber = u.number; state.isAdmin = u.isAdmin;
+    await sessionSave(u.number, u.isAdmin);
+    nav('home');
+  }catch(e){
+    console.error(e);
+    const code = e.code || '';
+    let msg = 'تعذّر تسجيل الدخول: ' + (e.message || 'خطأ غير معروف');
+    if(code==='permission-denied' || /Missing or insufficient permissions/i.test(e.message||'')){
+      msg = 'الوصول مرفوض من Firestore Rules — افتح Firebase Console > Firestore Database > Rules واسمح بالقراءة/الكتابة.';
+    }
+    document.getElementById('app').innerHTML = `<div class="page"><div class="card" style="border-color:var(--danger);">
+      <b style="color:var(--danger);">خطأ في الاتصال بقاعدة البيانات</b>
+      <p class="sub" style="margin-top:8px;">${escapeHtml(msg)}</p>
+      <button class="btn btn-primary" style="margin-top:12px;" onclick="render()">حاول مرة أخرى</button>
+    </div></div>`;
+  }
+}
+
+/* ================= HOME ================= */
+async function renderHome(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ تحميل الإحصائيات...</div>`;
+  if(state.isAdmin){
+    const s = await adminStats();
+    cont.innerHTML = `
+      <div class="section-title">لوحة المشرف</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num">${s.sections}</div><div class="stat-label">عدد الأقسام</div></div>
+        <div class="stat-card"><div class="stat-num">${s.questions}</div><div class="stat-label">عدد الأسئلة المضافة</div></div>
+        <div class="stat-card"><div class="stat-num">${s.attempts}</div><div class="stat-label">اختبارات أجراها المستخدمون</div></div>
+      </div>
+      <button class="btn btn-primary" onclick="nav('admin-sections')">${iconGrid()} إدارة الأقسام</button>
+    `;
+  }else{
+    const s = await userStats(state.userNumber);
+    cont.innerHTML = `
+      <div class="section-title">مرحباً، ${state.userNumber}</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num">${s.testedSections}</div><div class="stat-label">أقسام تم اختبارها</div></div>
+        <div class="stat-card"><div class="stat-num">${s.totalScore}/${s.totalQ}</div><div class="stat-label">مجموع النتائج</div></div>
+        <div class="stat-card"><div class="stat-num">${s.avgPercent}%</div><div class="stat-label">متوسط النتائج</div></div>
+        <div class="stat-card"><div class="stat-num">${fmtDuration(s.totalTime)}</div><div class="stat-label">إجمالي الوقت المستغرق</div></div>
+      </div>
+      <div class="stat-card" style="margin-bottom:16px;"><div class="stat-num">${fmtDuration(s.avgTime)}</div><div class="stat-label">متوسط الوقت لكل اختبار</div></div>
+      <button class="btn btn-primary" onclick="nav('sections')">${iconGrid()} ابدأ اختبار قسم</button>
+    `;
+  }
+}
+
+/* ================= SECTIONS (user) ================= */
+async function renderSections(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const sections = await loadSections();
+  if(sections.length===0){ cont.innerHTML = emptyState('لا توجد أقسام بعد','سيقوم المشرف بإضافتها قريباً'); return; }
+  cont.innerHTML = `
+    <div class="section-title">الأقسام</div>
+    <button class="btn btn-outline" style="margin-bottom:16px;" onclick="startQuiz('all')">${iconGrid()} اختبر جميع الأقسام</button>
+    ${sections.map(s=>`
+      <div class="list-item" onclick="startQuiz('${s.id}')">
+        <div><div class="title">${s.name}</div></div>
+        <div>${iconChev()}</div>
+      </div>`).join('')}
+  `;
+}
+
+/* ================= WRONG QUESTIONS ================= */
+async function renderWrong(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const list = await getWrongList(state.userNumber);
+  if(list.length===0){ cont.innerHTML = emptyState('لا توجد أسئلة خاطئة','أحسنت! لا يوجد لديك أخطاء متراكمة حالياً'); return; }
+  await hydrateWithSections();
+  const rows = await Promise.all(list.map(async w=>{
+    const q = await getQuestionById(w.questionId);
+    if(!q) return '';
+    const secName = sectionName(w.sectionId);
+    return `<div class="list-item" style="cursor:default;">
+      <div style="flex:1;">
+        <span class="chip">${secName}</span>
+        <div class="title" style="margin-top:6px;">${escapeHtml(questionSummaryText(q)) || QTYPES[q.type].label}</div>
+      </div>
+      <div class="icon-action" onclick="event.stopPropagation();removeWrong('${w.questionId}')">${iconTrash()}</div>
+    </div>`;
+  }));
+  cont.innerHTML = `
+    <div class="section-title">الأسئلة الخاطئة</div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="startWrongReview()">راجع جميع الأسئلة</button>
+    ${rows.join('')}
+  `;
+}
+async function removeWrong(qid){ await clearWrong(state.userNumber, qid); toast('تم الحذف'); renderWrong(); }
+async function startWrongReview(){
+  const list = await getWrongList(state.userNumber);
+  const qs = (await Promise.all(list.map(w=>getQuestionById(w.questionId)))).filter(Boolean);
+  if(qs.length===0){ toast('لا توجد أسئلة'); return; }
+  beginQuizSession(qs, 'مراجعة الأسئلة الخاطئة', 'wrong-review');
+}
+
+/* ================= SAVED QUESTIONS ================= */
+async function renderSaved(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const list = await getSavedList(state.userNumber);
+  if(list.length===0){ cont.innerHTML = emptyState('لا توجد أسئلة محفوظة','اضغط أيقونة الحفظ أثناء الاختبار لإضافة سؤال هنا'); return; }
+  const rows = await Promise.all(list.map(async w=>{
+    const q = await getQuestionById(w.questionId);
+    if(!q) return '';
+    const secName = sectionName(w.sectionId);
+    return `<div class="list-item" style="cursor:default;">
+      <div style="flex:1;">
+        <span class="chip">${secName}</span>
+        <div class="title" style="margin-top:6px;">${escapeHtml(questionSummaryText(q)) || QTYPES[q.type].label}</div>
+      </div>
+      <div class="icon-action" onclick="event.stopPropagation();removeSaved('${w.questionId}')">${iconTrash()}</div>
+    </div>`;
+  }));
+  cont.innerHTML = `
+    <div class="section-title">الأسئلة المحفوظة</div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="startSavedReview()">راجع جميع الأسئلة</button>
+    ${rows.join('')}
+  `;
+}
+async function removeSaved(qid){ await toggleSaved(state.userNumber,{id:qid}, false); toast('تم الحذف'); renderSaved(); }
+async function startSavedReview(){
+  const list = await getSavedList(state.userNumber);
+  const qs = (await Promise.all(list.map(w=>getQuestionById(w.questionId)))).filter(Boolean);
+  if(qs.length===0){ toast('لا توجد أسئلة'); return; }
+  beginQuizSession(qs, 'مراجعة الأسئلة المحفوظة', 'saved-review');
+}
+
+/* ================= HISTORY ================= */
+async function renderHistory(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const attempts = await getAttempts(state.userNumber);
+  if(attempts.length===0){ cont.innerHTML = emptyState('لا يوجد سجل اختبارات بعد','ابدأ اختبار قسم ليظهر هنا'); return; }
+  cont.innerHTML = `
+    <div class="section-title">سجل اختبارات الأقسام</div>
+    ${attempts.map(a=>`
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div class="title" style="font-weight:700;">${a.sectionName||'كل الأقسام'}</div>
+            <div class="sub">${fmtDate(a.createdAt)} · ${fmtTime(a.startedAtClient?{toDate:()=>new Date(a.startedAtClient)}:a.createdAt)} - ${a.endedAtClient?fmtTime({toDate:()=>new Date(a.endedAtClient)}):''}</div>
+          </div>
+          <span class="chip ${a.score/a.total>=0.6?'chip-success':'chip-danger'}">${a.score}/${a.total}</span>
+        </div>
+        <div class="sub" style="margin-top:8px;">المدة: ${fmtDuration(a.durationSeconds)}</div>
+        <button class="btn btn-outline btn-sm" style="margin-top:12px;width:100%;" onclick="showAttemptDetail('${a.id}')">التفاصيل</button>
+      </div>`).join('')}
+  `;
+}
+async function showAttemptDetail(attemptId){
+  const a = await getAttempt(state.userNumber, attemptId);
+  if(!a) return;
+  const rows = a.answers.map((ans,i)=>`
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="sub">سؤال ${i+1} · ${QTYPES[ans.type]?QTYPES[ans.type].label:''}</span>
+        <span class="chip ${ans.isCorrect?'chip-success':'chip-danger'}">${ans.isCorrect?'إجابة صحيحة':'إجابة خاطئة'}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <span class="chip">${ans.saved?'محفوظ ✓':'غير محفوظ'}</span>
+        <span class="chip">${ans.reviewed?'ضمن المراجعة ✓':'-'}</span>
+        <span class="chip">الوقت: ${fmtDuration(ans.timeSpentSeconds||0)}</span>
+      </div>
+    </div>`).join('');
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">تفاصيل الاختبار</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <div class="sub" style="margin-bottom:14px;">${a.sectionName||'كل الأقسام'} · ${fmtDate(a.createdAt)} · النتيجة ${a.score}/${a.total}</div>
+    ${rows}
+  `,true);
+}
+
+/* ================= modal generic ================= */
+function openModal(html, center){
+  const wrap = document.createElement('div');
+  wrap.id='modalRoot';
+  wrap.className = 'modal-overlay'+(center?' center':'');
+  wrap.innerHTML = `<div class="modal" onclick="event.stopPropagation()">${html}</div>`;
+  wrap.onclick = closeModal;
+  document.body.appendChild(wrap);
+}
+function closeModal(){ const m=document.getElementById('modalRoot'); if(m) m.remove(); }
+
+/* ================= QUIZ ENGINE ================= */
+async function startQuiz(sectionId){
+  const cont = document.getElementById('app');
+  cont.innerHTML = `<div class="loader">جارِ تجهيز الاختبار...</div>`;
+  try{
+    let qs=[]; let secName='';
+    if(sectionId==='all'){
+      qs = await getAllQuestions();
+      secName='كل الأقسام';
+    }else{
+      qs = await getQuestions(sectionId);
+      const sec = state.sections.find(s=>s.id===sectionId);
+      secName = sec?sec.name:'';
+    }
+    if(qs.length===0){ toast('لا توجد أسئلة في هذا القسم بعد'); nav('sections'); return; }
+    beginQuizSession(qs, secName, sectionId);
+  }catch(e){
+    console.error(e);
+    showRenderError(e);
+  }
+}
+function beginQuizSession(questions, sectionName, sectionId){
+  state.quiz = {
+    sectionId, sectionName,
+    questions, index:0,
+    answers: questions.map(q=>({questionId:q.id, sectionId:q.sectionId, type:q.type, selectedIndex:null, saved:false, reviewed:false, timeSpentSeconds:0})),
+    startedAt: Date.now(),
+    qStartedAt: Date.now(),
+    savedFlags:{}, reviewFlags:{},
+    reviewMode:false
+  };
+  state.route={name:'quiz',params:{}};
+  render();
+  preloadSavedFlags();
+}
+async function preloadSavedFlags(){
+  const snap = await db.collection('users').doc(state.userNumber).collection('saved').get();
+  const set = new Set(snap.docs.map(d=>d.id));
+  state.quiz.savedFlags = {};
+  state.quiz.questions.forEach(q=>{ state.quiz.savedFlags[q.id]=set.has(q.id); });
+  renderQuizScreen();
+}
+function currentQ(){ return state.quiz.questions[state.quiz.index]; }
+function currentAns(){ return state.quiz.answers[state.quiz.index]; }
+
+function renderQuizScreen(){
+  const cont = document.getElementById('page-content');
+  if(!cont) return;
+  const quiz = state.quiz;
+  const q = currentQ();
+  const ans = currentAns();
+  const pct = Math.round(((quiz.index)/quiz.questions.length)*100);
+  const saved = quiz.savedFlags[q.id];
+  const reviewed = quiz.reviewFlags[q.id];
+
+  let bodyHtml = '';
+  const instr = QTYPES[q.type].instruction;
+
+  if(q.type==='reading'){
+    bodyHtml = `
+      <div class="q-instruction">${instr}</div>
+      <div class="q-passage-link" onclick="showPassage()">${iconEye()} إظهار النص</div>
+      <div class="q-text">${escapeHtml(q.question)}</div>
+    `;
+  }else if(q.type==='odd_word'){
+    bodyHtml = `<div class="q-instruction">${instr}</div>`;
+  }else if(q.type==='analogy'){
+    bodyHtml = `<div class="q-instruction">${instr}</div><div class="q-text">${escapeHtml(q.word1)} : ${escapeHtml(q.word2)}</div>`;
+  }else{
+    bodyHtml = `<div class="q-instruction">${instr}</div><div class="q-text">${escapeHtml(q.sentence)}</div>`;
+  }
+
+  const answersHtml = q.answers.map((a,i)=>{
+    const label = q.type==='analogy' ? `${a.w1} : ${a.w2}` : a;
+    const sel = ans.selectedIndex===i ? 'selected':'';
+    return `<div class="answer ${sel}" onclick="selectAnswer(${i})">
+      <div class="letter">${LETTERS[i]}</div>
+      <div>${escapeHtml(label)}</div>
+    </div>`;
+  }).join('');
+
+  const isLast = quiz.index === quiz.questions.length-1;
+
+  const cont2 = `
+    <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;"></div></div>
+    <div class="q-meta"><span>سؤال ${quiz.index+1} من ${quiz.questions.length}</span><span class="q-tag">${quiz.sectionName}</span></div>
+    <div class="quiz-tools">
+      <div class="tool-btn ${saved?'active':''}" onclick="toggleSaveCurrent()" title="حفظ السؤال">${iconBookmark(saved)}</div>
+      <div class="tool-btn ${reviewed?'review-active':''}" onclick="toggleReviewCurrent()" title="إضافة للمراجعة">${iconCircle(reviewed)}</div>
+    </div>
+    <div class="q-card">${bodyHtml}<div style="margin-top:14px;">${answersHtml}</div></div>
+    <div class="btn-row">
+      ${quiz.index>0?`<button class="btn" onclick="prevQuestion()">السابق</button>`:''}
+      <button class="btn btn-primary" onclick="${isLast?'goToReviewScreen()':'nextQuestion()'}">${isLast?'مراجعة قبل الإرسال':'التالي'}</button>
+    </div>
+  `;
+  cont.innerHTML = cont2;
+}
+function showPassage(){
+  const q = currentQ();
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">النص</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <div style="line-height:2;font-size:15px;">${escapeHtml(q.passage)}</div>
+  `, true);
+}
+function selectAnswer(i){
+  currentAns().selectedIndex = i;
+  renderQuizScreen();
+}
+function recordTimeSpent(){
+  const now = Date.now();
+  const spent = (now - state.quiz.qStartedAt)/1000;
+  currentAns().timeSpentSeconds += spent;
+  state.quiz.qStartedAt = now;
+}
+function nextQuestion(){
+  recordTimeSpent();
+  if(state.quiz.index < state.quiz.questions.length-1){ state.quiz.index++; renderQuizScreen(); }
+}
+function prevQuestion(){
+  recordTimeSpent();
+  if(state.quiz.index>0){ state.quiz.index--; renderQuizScreen(); }
+}
+function toggleSaveCurrent(){
+  const q = currentQ();
+  const nv = !state.quiz.savedFlags[q.id];
+  state.quiz.savedFlags[q.id]=nv;
+  toggleSaved(state.userNumber, q, nv);
+  toast(nv?'تم حفظ السؤال':'تم إلغاء الحفظ');
+  renderQuizScreen();
+}
+function toggleReviewCurrent(){
+  const q = currentQ();
+  state.quiz.reviewFlags[q.id] = !state.quiz.reviewFlags[q.id];
+  renderQuizScreen();
+}
+function goToReviewScreen(){
+  recordTimeSpent();
+  renderReviewScreen();
+}
+function renderReviewScreen(){
+  const cont = document.getElementById('app');
+  const quiz = state.quiz;
+  const flagged = quiz.questions.map((q,i)=>({q,i})).filter(x=>quiz.reviewFlags[x.q.id]);
+  const unanswered = quiz.answers.map((a,i)=>({a,i})).filter(x=>x.a.selectedIndex===null);
+  cont.innerHTML = `
+    <div class="topbar"><button class="icon-btn" onclick="renderQuizFromRoute()">${iconChev()}</button><div class="topbar-title">مراجعة قبل الإرسال</div><div style="width:40px;"></div></div>
+    <div class="page">
+      <div class="section-title">قبل الإرسال</div>
+      ${unanswered.length? `<div class="card"><b>أسئلة غير مجابة (${unanswered.length})</b><div style="margin-top:10px;">
+        ${unanswered.map(u=>`<span class="pill" style="cursor:pointer;display:inline-block;margin-left:6px;margin-bottom:6px;" onclick="jumpTo(${u.i})">سؤال ${u.i+1}</span>`).join('')}
+      </div></div>`:''}
+      ${flagged.length? `<div class="card"><b>أسئلة معلّمة للمراجعة (${flagged.length})</b><div style="margin-top:10px;">
+        ${flagged.map(f=>`<span class="pill active" style="cursor:pointer;display:inline-block;margin-left:6px;margin-bottom:6px;" onclick="jumpTo(${f.i})">سؤال ${f.i+1}</span>`).join('')}
+      </div></div>`:''}
+      ${(!flagged.length && !unanswered.length) ? `<div class="empty"><div class="ic">✓</div>لا توجد أسئلة معلّمة أو ناقصة، جاهز للإرسال</div>`:''}
+      <div class="btn-row" style="margin-top:20px;">
+        <button class="btn" onclick="renderQuizFromRoute()">رجوع للأسئلة</button>
+        <button class="btn btn-primary" onclick="submitQuiz()">إرسال الاختبار</button>
+      </div>
+    </div>`;
+}
+function jumpTo(i){ state.quiz.index=i; renderQuizFromRoute(); }
+function renderQuizFromRoute(){ render(); }
+
+async function submitQuiz(){
+  const quiz = state.quiz;
+  document.getElementById('app').innerHTML = `<div class="loader">جارِ تصحيح الاختبار...</div>`;
+  let score=0;
+  quiz.answers.forEach((ans,i)=>{
+    const q = quiz.questions[i];
+    ans.isCorrect = ans.selectedIndex!==null && ans.selectedIndex===q.correctIndex;
+    ans.saved = !!quiz.savedFlags[q.id];
+    ans.reviewed = !!quiz.reviewFlags[q.id];
+    if(ans.isCorrect) score++;
+  });
+  const durationSeconds = (Date.now()-quiz.startedAt)/1000;
+  const attempt = {
+    sectionId: quiz.sectionId, sectionName: quiz.sectionName,
+    score, total: quiz.questions.length, durationSeconds,
+    startedAtClient: quiz.startedAt, endedAtClient: Date.now(),
+    answers: quiz.answers
+  };
+  const attemptId = await addAttempt(state.userNumber, attempt);
+  for(let i=0;i<quiz.answers.length;i++){
+    const ans = quiz.answers[i];
+    if(ans.isCorrect) await clearWrong(state.userNumber, ans.questionId);
+    else await setWrong(state.userNumber, {id:ans.questionId, sectionId:ans.sectionId, type:ans.type});
+  }
+  showResultScreen(attemptId, attempt, quiz);
+}
+function showResultScreen(attemptId, attempt, quiz){
+  const wrongItems = attempt.answers.map((a,i)=>({a,q:quiz.questions[i]})).filter(x=>!x.a.isCorrect);
+  const pct = Math.round((attempt.score/attempt.total)*100);
+  const cont = document.getElementById('app');
+  cont.innerHTML = `
+    <div class="page">
+      <div style="text-align:center;margin:20px 0 30px;">
+        <div style="font-size:46px;font-weight:900;font-family:'Tajawal';color:var(--accent);">${attempt.score}/${attempt.total}</div>
+        <div class="sub" style="color:var(--text-dim);margin-top:6px;">نسبة الإجابات الصحيحة ${pct}%</div>
+        <div class="sub" style="color:var(--text-faint);margin-top:4px;">الوقت المستغرق: ${fmtDuration(attempt.durationSeconds)}</div>
+      </div>
+      ${wrongItems.length? `
+      <div class="card">
+        <b>الأسئلة التي أخطأت فيها (${wrongItems.length})</b>
+        <div style="margin-top:12px;">
+        ${wrongItems.map(x=>`
+          <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+            <div style="font-size:14px;">${escapeHtml(questionSummaryText(x.q))||QTYPES[x.q.type].label}</div>
+            <div class="sub" style="color:var(--success);margin-top:4px;">الصحيحة: ${escapeHtml(answerLabel(x.q,x.q.correctIndex))}</div>
+          </div>`).join('')}
+        </div>
+      </div>`:`<div class="empty"><div class="ic">🎉</div>ممتاز! لا يوجد أخطاء</div>`}
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn" onclick="restartSameSection('${quiz.sectionId}')">إعادة اختبار القسم</button>
+        <button class="btn btn-primary" onclick="nextSection('${quiz.sectionId}')">القسم التالي</button>
+      </div>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="nav('sections')">رجوع للأقسام</button>
+    </div>`;
+}
+function restartSameSection(sectionId){ startQuiz(sectionId); }
+async function nextSection(currentSectionId){
+  await loadSections();
+  const idx = state.sections.findIndex(s=>s.id===currentSectionId);
+  if(idx>=0 && idx<state.sections.length-1){ startQuiz(state.sections[idx+1].id); }
+  else if(state.sections.length>0){ startQuiz(state.sections[0].id); }
+  else nav('sections');
+}
+
+/* ================= shared data caches ================= */
+let sectionsCacheMap = {};
+async function hydrateWithSections(){ await loadSections(); sectionsCacheMap = {}; state.sections.forEach(s=>sectionsCacheMap[s.id]=s.name); }
+function sectionName(id){ return sectionsCacheMap[id] || '-'; }
+let questionCache = {};
+async function getQuestionById(id){
+  if(questionCache[id]) return questionCache[id];
+  const d = await db.collection('questions').doc(id).get();
+  if(!d.exists) return null;
+  const q = {id:d.id,...d.data()};
+  questionCache[id]=q;
+  return q;
+}
+function escapeHtml(s){ if(s===undefined||s===null) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function iconEye(){ return svgIcon('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'); }
+function emptyState(title,sub){ return `<div class="empty"><div class="ic">${iconGrid()}</div><div style="font-weight:700;color:var(--text-dim);margin-bottom:6px;">${title}</div><div>${sub}</div></div>`; }
+
+/* ================= ADMIN: SECTIONS ================= */
+async function renderAdminSections(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const sections = await loadSections(true);
+  cont.innerHTML = `
+    <div class="section-title">إدارة الأقسام</div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="openAddSectionChoice()">${iconPlus()} إضافة قسم</button>
+    ${sections.length===0? emptyState('لا توجد أقسام بعد','ابدأ بإضافة أول قسم'):''}
+    ${sections.map(s=>`
+      <div class="list-item" style="cursor:default;">
+        <div style="flex:1;cursor:pointer;" onclick="nav('admin-section-edit',{id:'${s.id}'})"><div class="title">${escapeHtml(s.name)}</div></div>
+        <div style="display:flex;gap:8px;">
+          <div class="icon-action" onclick="event.stopPropagation();openEditSectionModal('${s.id}','${escapeHtml(s.name).replace(/'/g,"\\'")}')">${iconEdit()}</div>
+          <div class="icon-action" onclick="event.stopPropagation();confirmDeleteSection('${s.id}')">${iconTrash()}</div>
+        </div>
+      </div>`).join('')}
+  `;
+}
+function openEditSectionModal(id,name){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">تعديل القسم</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <div class="field"><label>اسم القسم</label><input type="text" id="editSecName" value="${name}"></div>
+    <button class="btn btn-primary" onclick="saveEditSection('${id}')">حفظ</button>
+  `, true);
+}
+async function saveEditSection(id){
+  const val = document.getElementById('editSecName').value.trim();
+  if(!val){ toast('اكتب اسم القسم'); return; }
+  await updateSection(id,val); closeModal(); toast('تم التحديث'); renderAdminSections();
+}
+function confirmDeleteSection(id){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">تأكيد الحذف</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <p class="sub">سيتم حذف القسم وكل أسئلته نهائياً. متابعة؟</p>
+    <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="doDeleteSection('${id}')">حذف</button></div>
+  `, true);
+}
+async function doDeleteSection(id){ await deleteSection(id); closeModal(); toast('تم الحذف'); renderAdminSections(); }
+
+function openAddSectionChoice(){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">إضافة قسم</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <button class="btn btn-primary" style="margin-bottom:10px;" onclick="closeModal();startManualAddSection();">إضافة يدوية</button>
+    <button class="btn btn-outline" onclick="closeModal();startQuickAddSection();">إضافة سريعة</button>
+  `, true);
+}
+async function startManualAddSection(){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">اسم القسم الجديد</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <div class="field"><input type="text" id="newSecName" placeholder="مثال: التناظر اللفظي"></div>
+    <button class="btn btn-primary" onclick="createManualSection()">متابعة لإضافة الأسئلة</button>
+  `, true);
+}
+async function createManualSection(){
+  const name = document.getElementById('newSecName').value.trim();
+  if(!name){ toast('اكتب اسم القسم'); return; }
+  const id = await addSection(name);
+  closeModal();
+  nav('admin-section-edit',{id});
+}
+
+async function renderAdminSectionEdit(sectionId){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  await loadSections(true);
+  const sec = state.sections.find(s=>s.id===sectionId);
+  if(!sec){ nav('admin-sections'); return; }
+  const questions = await getQuestions(sectionId);
+  cont.innerHTML = `
+    <div class="section-title">${escapeHtml(sec.name)}</div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="nav('admin-question-add',{sectionId:'${sectionId}'})">${iconPlus()} إضافة سؤال</button>
+    <div class="sub" style="margin-bottom:10px;">عدد الأسئلة: ${questions.length}</div>
+    ${questions.length===0? emptyState('لا توجد أسئلة بعد',''):''}
+    ${questions.map((q,i)=>`
+      <div class="list-item" style="cursor:default;">
+        <div style="flex:1;">
+          <span class="type-badge">${QTYPES[q.type].label}</span>
+          <div class="title">${escapeHtml(questionSummaryText(q))||('سؤال '+(i+1))}</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div class="icon-action" onclick="nav('admin-question-add',{sectionId:'${sectionId}',questionId:'${q.id}'})">${iconEdit()}</div>
+          <div class="icon-action" onclick="confirmDeleteQuestion('${q.id}','${sectionId}')">${iconTrash()}</div>
+        </div>
+      </div>`).join('')}
+    <button class="btn btn-outline" style="margin-top:16px;" onclick="nav('admin-sections')">رجوع لإدارة الأقسام</button>
+  `;
+}
+function confirmDeleteQuestion(qid,sectionId){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">حذف السؤال</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <p class="sub">هل تريد حذف هذا السؤال نهائياً؟</p>
+    <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="doDeleteQuestion('${qid}','${sectionId}')">حذف</button></div>
+  `, true);
+}
+async function doDeleteQuestion(qid,sectionId){ await deleteQuestion(qid); closeModal(); toast('تم الحذف'); nav('admin-section-edit',{id:sectionId}); }
+
+/* ================= ADMIN: ADD/EDIT QUESTION (manual) ================= */
+let questionDraftType = null;
+async function renderAdminQuestionAdd(sectionId, questionId){
+  const cont = document.getElementById('page-content');
+  let existing = null;
+  if(questionId){ existing = await getQuestionById(questionId); questionDraftType = existing?.type; }
+  cont.innerHTML = `
+    <div class="section-title">${existing?'تعديل السؤال':'إضافة سؤال'}</div>
+    <div class="field">
+      <label>نوع السؤال</label>
+      <div class="pill-select" id="typeSelect">
+        ${Object.keys(QTYPES).map(t=>`<div class="pill ${questionDraftType===t?'active':''}" onclick="selectQType('${t}','${sectionId}','${questionId||''}')">${QTYPES[t].label}</div>`).join('')}
+      </div>
+    </div>
+    <div id="qFormFields">${questionDraftType?questionFormFields(questionDraftType, existing):'<div class="sub">اختر نوع السؤال أولاً</div>'}</div>
+    <button class="btn btn-primary" style="margin-top:10px;" onclick="saveManualQuestion('${sectionId}','${questionId||''}')">حفظ السؤال</button>
+    <button class="btn btn-outline" style="margin-top:10px;" onclick="nav('admin-section-edit',{id:'${sectionId}'})">إلغاء</button>
+  `;
+}
+function selectQType(t, sectionId, questionId){
+  questionDraftType = t;
+  renderAdminQuestionAdd(sectionId, questionId||null);
+}
+function questionFormFields(type, existing){
+  const ans = existing?.answers || (type==='analogy'? [{w1:'',w2:''},{w1:'',w2:''},{w1:'',w2:''},{w1:'',w2:''}] : ['','','','']);
+  const correctIndex = existing?.correctIndex ?? 0;
+  if(type==='contextual_error'){
+    return `
+      <div class="field"><label>الجملة (السؤال)</label><textarea id="f_sentence">${escapeHtml(existing?.sentence)}</textarea></div>
+      ${answersBlock(ans,correctIndex,false)}
+    `;
+  }
+  if(type==='analogy'){
+    return `
+      <div class="field"><label>المفردة الأولى للسؤال</label><input type="text" id="f_word1" value="${escapeHtml(existing?.word1)}"></div>
+      <div class="field"><label>المفردة الثانية للسؤال</label><input type="text" id="f_word2" value="${escapeHtml(existing?.word2)}"></div>
+      ${answersBlockAnalogy(ans, correctIndex)}
+    `;
+  }
+  if(type==='reading'){
+    return `
+      <div class="field"><label>النص</label><textarea id="f_passage" style="min-height:140px;">${escapeHtml(existing?.passage)}</textarea></div>
+      <div class="field"><label>السؤال</label><input type="text" id="f_question" value="${escapeHtml(existing?.question)}"></div>
+      ${answersBlock(ans,correctIndex,false)}
+    `;
+  }
+  if(type==='odd_word'){
+    return `${answersBlock(ans,correctIndex,false)}`;
+  }
+  if(type==='sentence_completion'){
+    return `
+      <div class="field"><label>الجملة (استخدم ........ لتحديد الفراغ)</label><textarea id="f_sentence">${escapeHtml(existing?.sentence)}</textarea></div>
+      ${answersBlock(ans,correctIndex,false)}
+    `;
+  }
+  return '';
+}
+function answersBlock(ans, correctIndex){
+  return `<div class="field"><label>الإجابات (حدد الصحيحة)</label>
+    ${[0,1,2,3].map(i=>`
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <input type="radio" name="correctAns" value="${i}" ${correctIndex==i?'checked':''} style="width:auto;margin:0;">
+        <input type="text" id="f_ans_${i}" placeholder="إجابة ${LETTERS[i]}" value="${escapeHtml(ans[i])}" style="margin-bottom:0;">
+      </div>`).join('')}
+  </div>`;
+}
+function answersBlockAnalogy(ans, correctIndex){
+  return `<div class="field"><label>الإجابات (حدد الصحيحة)</label>
+    ${[0,1,2,3].map(i=>`
+      <div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+          <input type="radio" name="correctAns" value="${i}" ${correctIndex==i?'checked':''} style="width:auto;margin:0;">
+          <span class="sub">إجابة ${LETTERS[i]}</span>
+        </div>
+        <input type="text" id="f_ans_${i}_w1" placeholder="المفردة الأولى" value="${escapeHtml(ans[i]?.w1)}">
+        <input type="text" id="f_ans_${i}_w2" placeholder="المفردة الثانية" value="${escapeHtml(ans[i]?.w2)}">
+      </div>`).join('')}
+  </div>`;
+}
+async function saveManualQuestion(sectionId, questionId){
+  const type = questionDraftType;
+  if(!type){ toast('اختر نوع السؤال'); return; }
+  const correctRadio = document.querySelector('input[name=correctAns]:checked');
+  const correctIndex = correctRadio? parseInt(correctRadio.value):0;
+  let data = { correctIndex };
+  if(type==='contextual_error' || type==='sentence_completion'){
+    data.sentence = document.getElementById('f_sentence').value.trim();
+    data.answers = [0,1,2,3].map(i=>document.getElementById(`f_ans_${i}`).value.trim());
+  }else if(type==='reading'){
+    data.passage = document.getElementById('f_passage').value.trim();
+    data.question = document.getElementById('f_question').value.trim();
+    data.answers = [0,1,2,3].map(i=>document.getElementById(`f_ans_${i}`).value.trim());
+  }else if(type==='odd_word'){
+    data.answers = [0,1,2,3].map(i=>document.getElementById(`f_ans_${i}`).value.trim());
+  }else if(type==='analogy'){
+    data.word1 = document.getElementById('f_word1').value.trim();
+    data.word2 = document.getElementById('f_word2').value.trim();
+    data.answers = [0,1,2,3].map(i=>({w1:document.getElementById(`f_ans_${i}_w1`).value.trim(), w2:document.getElementById(`f_ans_${i}_w2`).value.trim()}));
+  }
+  if(questionId){ await updateQuestion(questionId, type, data); toast('تم التحديث'); }
+  else{ await addQuestion(sectionId, type, data); toast('تمت الإضافة'); }
+  questionDraftType = null;
+  nav('admin-section-edit',{id:sectionId});
+}
+
+/* ================= ADMIN: QUICK ADD ================= */
+function renderAdminQuickAdd(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `
+    <div class="section-title">إضافة سريعة</div>
+    <div class="small-note card">
+      اكتب النص بالتنسيق المتفق عليه. مثال مختصر:
+      <pre style="white-space:pre-wrap;font-size:11.5px;color:var(--text-faint);margin-top:8px;">عنوان ورقم القسم: 1 المفردة الشاذة
+
+نوع السؤال: المفردة الشاذة
+رقم السؤال: 1
+الإجابات:
+1 تفاح
+2 برتقال
+3 سيارة --- هذه الإجابة الصحيحة
+4 موز</pre>
+    </div>
+    <textarea id="quickAddText" placeholder="الصق النص هنا..." style="min-height:260px;"></textarea>
+    <div class="btn-row">
+      <button class="btn" onclick="previewQuickAdd()">معاينة</button>
+      <button class="btn btn-primary" id="quickSaveBtn" style="display:none;" onclick="saveQuickAdd()">حفظ القسم والأسئلة</button>
+    </div>
+    <div id="quickPreview"></div>
+    <button class="btn btn-outline" style="margin-top:16px;" onclick="nav('admin-sections')">رجوع</button>
+  `;
+}
+let quickParsed = null;
+function extractBetween(text, startLabel, endLabels){
+  // returns text right after startLabel up to the first occurrence of any endLabel (or end of string)
+  const startIdx = text.indexOf(startLabel);
+  if(startIdx===-1) return null;
+  const from = startIdx + startLabel.length;
+  let endIdx = text.length;
+  endLabels.forEach(lbl=>{
+    const idx = text.indexOf(lbl, from);
+    if(idx!==-1 && idx<endIdx) endIdx = idx;
+  });
+  return text.slice(from, endIdx).trim();
+}
+function parseQuickAdd(rawText){
+  // normalize: collapse all whitespace/newlines into single spaces so the parser
+  // works whether the admin writes each field on its own line or as continuous text.
+  const norm = rawText.replace(/\s+/g,' ').trim();
+
+  const titleRaw = extractBetween(norm, 'عنوان ورقم القسم:', ['نوع السؤال:']);
+  if(titleRaw===null) throw new Error('لم أجد "عنوان ورقم القسم:" في النص');
+  const titleParts = titleRaw.split(/\s+/);
+  const secNumber = titleParts[0] || '';
+  const secTitle = titleParts.slice(1).join(' ') || titleRaw;
+
+  const blocks = norm.split(/(?=نوع السؤال:)/g).slice(1);
+  if(blocks.length===0) throw new Error('لم أجد أي سؤال (تأكد من كتابة "نوع السؤال:" قبل كل سؤال)');
+
+  const ALL_LABELS = ['رقم السؤال:','المفردة الأولى:','المفردة الثانية:','النص:','السؤال:','الجملة:','الإجابات:'];
+
+  const questions = blocks.map((block, bi)=>{
+    const n = bi+1;
+    const typeLabel = extractBetween(block, 'نوع السؤال:', ['رقم السؤال:','الإجابات:']);
+    const typeKey = Object.keys(QTYPES).find(k=>QTYPES[k].label===typeLabel);
+    if(!typeKey) throw new Error(`نوع السؤال غير معروف في السؤال رقم ${n}: "${typeLabel}"`);
+
+    const answersIdx = block.indexOf('الإجابات:');
+    if(answersIdx===-1) throw new Error(`لم أجد "الإجابات:" في السؤال رقم ${n}`);
+    const header = block.slice(0, answersIdx);
+    const answersRaw = block.slice(answersIdx + 'الإجابات:'.length).trim();
+    if(!answersRaw) throw new Error(`قائمة الإجابات فارغة في السؤال رقم ${n}`);
+
+    let word1,word2,sentence,passage,question;
+    if(typeKey==='analogy'){
+      word1 = extractBetween(header,'المفردة الأولى:',['المفردة الثانية:']) || '';
+      word2 = extractBetween(header,'المفردة الثانية:',[]) || '';
+    }else if(typeKey==='reading'){
+      const passageStart = header.indexOf('النص:');
+      const passageFrom = passageStart===-1? -1 : passageStart + 'النص:'.length;
+      const qLabelIdx = passageFrom===-1? -1 : header.indexOf('السؤال:', passageFrom);
+      passage = passageFrom===-1? '' : (qLabelIdx===-1? header.slice(passageFrom).trim() : header.slice(passageFrom, qLabelIdx).trim());
+      question = qLabelIdx===-1? '' : header.slice(qLabelIdx + 'السؤال:'.length).trim();
+    }else if(typeKey==='contextual_error' || typeKey==='sentence_completion'){
+      sentence = extractBetween(header,'الجملة:',[]) || '';
+    }
+
+    let answers, correctIndex=-1;
+    if(typeKey==='analogy'){
+      const chunks = answersRaw.split(/(?=[1-4]\s*المفردة الأولى:)/g).map(c=>c.trim()).filter(Boolean);
+      if(chunks.length<2) throw new Error(`تعذّر تقسيم إجابات التناظر في السؤال رقم ${n}`);
+      answers = chunks.map((chunk,i)=>{
+        if(/---\s*هذه الإجابة الصحيحة/.test(chunk)) correctIndex=i;
+        const w1 = extractBetween(chunk,'المفردة الأولى:',['المفردة الثانية:']) || '';
+        let w2 = extractBetween(chunk,'المفردة الثانية:',[]) || '';
+        w2 = w2.replace(/---\s*هذه الإجابة الصحيحة.*$/,'').trim();
+        return { w1, w2 };
+      });
+    }else{
+      const chunks = answersRaw.split(/(?=[1-4]\s)/g).map(c=>c.trim()).filter(Boolean);
+      if(chunks.length<2) throw new Error(`تعذّر تقسيم الإجابات في السؤال رقم ${n} (تأكد من ترقيمها 1 2 3 4)`);
+      answers = chunks.map((chunk,i)=>{
+        if(/---\s*هذه الإجابة الصحيحة/.test(chunk)) correctIndex=i;
+        return chunk.replace(/^[1-4]\s*/,'').replace(/---\s*هذه الإجابة الصحيحة.*$/,'').trim();
+      });
+    }
+    if(correctIndex===-1) throw new Error(`لم أجد إجابة معلّمة بـ "--- هذه الإجابة الصحيحة" في السؤال رقم ${n}`);
+
+    return { type:typeKey, answers, correctIndex, word1, word2, sentence, passage, question };
+  });
+
+  return { secNumber, secTitle, questions };
+}
+function previewQuickAdd(){
+  const text = document.getElementById('quickAddText').value;
+  try{
+    quickParsed = parseQuickAdd(text);
+    const html = `
+      <div class="card" style="margin-top:14px;">
+        <b>القسم:</b> ${escapeHtml(quickParsed.secTitle)} <span class="chip">${escapeHtml(quickParsed.secNumber)}</span>
+        <div class="divider"></div>
+        <b>عدد الأسئلة المستخرجة: ${quickParsed.questions.length}</b>
+        ${quickParsed.questions.map((q,i)=>`
+          <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+            <span class="type-badge">${QTYPES[q.type].label}</span>
+            <div style="font-size:13.5px;margin-top:4px;">${escapeHtml(questionSummaryText(q))||'(بدون نص ظاهر)'}</div>
+            <div class="sub" style="color:var(--success);">الصحيحة: ${escapeHtml(q.type==='analogy'? (q.answers[q.correctIndex].w1+' : '+q.answers[q.correctIndex].w2) : q.answers[q.correctIndex])}</div>
+          </div>`).join('')}
+      </div>`;
+    document.getElementById('quickPreview').innerHTML = html;
+    document.getElementById('quickSaveBtn').style.display='flex';
+  }catch(e){
+    quickParsed=null;
+    document.getElementById('quickPreview').innerHTML = `<div class="card" style="border-color:var(--danger);color:var(--danger);margin-top:14px;">خطأ في التنسيق: ${escapeHtml(e.message)}</div>`;
+    document.getElementById('quickSaveBtn').style.display='none';
+  }
+}
+async function saveQuickAdd(){
+  if(!quickParsed) return;
+  document.getElementById('quickSaveBtn').textContent='جارِ الحفظ...';
+  try{
+    const sectionId = await addSection(quickParsed.secTitle);
+    for(const q of quickParsed.questions){
+      const data = {correctIndex:q.correctIndex, answers:q.answers};
+      if(q.word1!==undefined){ data.word1=q.word1; data.word2=q.word2; }
+      if(q.sentence!==undefined) data.sentence=q.sentence;
+      if(q.passage!==undefined){ data.passage=q.passage; data.question=q.question; }
+      await addQuestion(sectionId, q.type, data);
+    }
+    toast('تم حفظ القسم والأسئلة بنجاح');
+    nav('admin-sections');
+  }catch(e){
+    console.error(e);
+    toast('حدث خطأ أثناء الحفظ');
+    document.getElementById('quickSaveBtn').textContent='حفظ القسم والأسئلة';
+  }
+}
+
+/* ================= ROUTER / RENDER ================= */
+async function render(){
+  const app = document.getElementById('app');
+  if(!state.userNumber){ app.innerHTML = renderLogin(); return; }
+  app.innerHTML = `${renderTopbar()}${renderDrawer()}<div class="page" id="page-content"></div>`;
+  const r = state.route;
+  try{
+    if(r.name==='home') await renderHome();
+    else if(r.name==='sections') await renderSections();
+    else if(r.name==='wrong') await (async()=>{ await hydrateWithSections(); await renderWrong(); })();
+    else if(r.name==='saved') await (async()=>{ await hydrateWithSections(); await renderSaved(); })();
+    else if(r.name==='history') await renderHistory();
+    else if(r.name==='admin-sections') await renderAdminSections();
+    else if(r.name==='admin-section-edit') await renderAdminSectionEdit(r.params.id);
+    else if(r.name==='admin-question-add'){ questionDraftType = null; await renderAdminQuestionAdd(r.params.sectionId, r.params.questionId); }
+    else if(r.name==='admin-quick-add') renderAdminQuickAdd();
+    else if(r.name==='quiz') renderQuizScreen();
+  }catch(e){
+    console.error('render error:', e);
+    showRenderError(e);
+  }
+}
+function showRenderError(e){
+  const cont = document.getElementById('page-content') || document.getElementById('app');
+  if(!cont) return;
+  cont.innerHTML = `<div class="page"><div class="card" style="border-color:var(--danger);">
+    <b style="color:var(--danger);">حدث خطأ</b>
+    <p class="sub" style="margin-top:8px;">${escapeHtml(e.message||'خطأ غير معروف')}</p>
+    <button class="btn btn-primary" style="margin-top:12px;" onclick="render()">إعادة المحاولة</button>
+  </div></div>`;
+}
+window.addEventListener('unhandledrejection', function(ev){
+  console.error('unhandled:', ev.reason);
+  const err = ev.reason instanceof Error ? ev.reason : new Error(String(ev.reason && ev.reason.message || ev.reason || 'خطأ غير متوقع'));
+  showRenderError(err);
+});
+
+/* patch: add quick-add entry point into admin sections choice modal already includes startQuickAddSection */
+function startQuickAddSection(){ nav('admin-quick-add'); }
+
+/* ================= BOOT ================= */
+(async function boot(){
+  document.getElementById('app').innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const s = await sessionLoad();
+  if(s && s.num){
+    state.userNumber = s.num; state.isAdmin = s.isAdmin;
+    nav('home');
+  }else{
+    render();
+  }
+})();
+</script>
+</body>
+</html>
