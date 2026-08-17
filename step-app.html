@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STEP · Exam Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F1620;
+  --surface:#172233;
+  --surface-2:#1E2C40;
+  --border:#2A3B52;
+  --border-soft:#22314A;
+  --text:#E8ECEF;
+  --text-muted:#8FA3B8;
+  --text-faint:#5E7288;
+  --teal:#3FA796;
+  --teal-dim:#2C7A6D;
+  --amber:#F2A65A;
+  --red:#E15A4D;
+  --green:#4CAF7D;
+  --radius:14px;
+  --radius-sm:9px;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:radial-gradient(1200px 700px at 50% -10%, #14202E 0%, #0F1620 55%, #0B111A 100%);
+  color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.display{ font-family:'Space Grotesk',sans-serif; letter-spacing:-0.01em; }
+.mono{ font-family:'JetBrains Mono',monospace; }
+a{color:inherit;}
+button{ font-family:inherit; cursor:pointer; }
+::selection{ background:var(--teal); color:#08110E; }
+
+#app{ max-width:960px; margin:0 auto; padding:0 20px 80px; min-height:100vh; }
+.center-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+
+/* ---- Step motif ---- */
+.step-mark{ display:flex; align-items:flex-end; gap:4px; height:26px; }
+.step-mark i{ display:block; width:7px; background:var(--teal); border-radius:2px; opacity:.35; }
+.step-mark i:nth-child(1){ height:8px; }
+.step-mark i:nth-child(2){ height:14px; opacity:.6; }
+.step-mark i:nth-child(3){ height:20px; opacity:.85; }
+.step-mark i:nth-child(4){ height:26px; opacity:1; }
+
+.brand{ display:flex; align-items:center; gap:10px; }
+.brand .wordmark{ font-size:22px; font-weight:700; letter-spacing:.02em; }
+.brand .wordmark span{ color:var(--teal); }
+
+/* ---- Top bar ---- */
+.topbar{
+  position:sticky; top:0; z-index:20;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 0; margin-bottom:10px;
+  background:linear-gradient(var(--bg) 70%, transparent);
+  backdrop-filter:blur(6px);
+}
+.topbar .left{ display:flex; align-items:center; gap:8px; }
+.icon-btn{
+  width:40px; height:40px; border-radius:10px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center;
+  transition:.15s;
+}
+.icon-btn:hover{ background:var(--surface-2); border-color:var(--teal-dim); }
+.icon-btn svg{ width:18px; height:18px; }
+
+/* ---- Cards / layout ---- */
+.card{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:20px; margin-bottom:14px;
+}
+.card:hover.clickable{ border-color:var(--teal-dim); }
+.clickable{ cursor:pointer; transition:.15s; }
+.clickable:hover{ transform:translateY(-1px); }
+.grid{ display:grid; gap:14px; }
+.grid-2{ grid-template-columns:repeat(2,1fr); }
+.grid-3{ grid-template-columns:repeat(3,1fr); }
+@media (max-width:640px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+
+.stat{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:18px;
+}
+.stat .num{ font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:600; color:var(--amber); }
+.stat .label{ color:var(--text-muted); font-size:13px; margin-top:4px; }
+
+.page-title{ font-size:26px; font-weight:700; margin:6px 0 4px; }
+.page-sub{ color:var(--text-muted); font-size:14px; margin-bottom:20px; }
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  padding:11px 18px; border-radius:10px; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--text); font-weight:600; font-size:14px;
+  transition:.15s;
+}
+.btn:hover{ border-color:var(--teal-dim); }
+.btn-primary{ background:var(--teal); border-color:var(--teal); color:#062420; }
+.btn-primary:hover{ background:#49bdaa; }
+.btn-amber{ background:var(--amber); border-color:var(--amber); color:#3A1F02; }
+.btn-danger{ background:transparent; border-color:var(--red); color:var(--red); }
+.btn-danger:hover{ background:rgba(225,90,77,.1); }
+.btn-ghost{ background:transparent; border-color:var(--border); }
+.btn-block{ width:100%; }
+.btn-sm{ padding:7px 12px; font-size:13px; border-radius:8px; }
+.btn[disabled]{ opacity:.4; cursor:not-allowed; }
+
+input[type=text],input[type=tel],input[type=number],textarea{
+  width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+  padding:12px 14px; border-radius:10px; font-size:15px; font-family:inherit; outline:none;
+}
+input:focus,textarea:focus{ border-color:var(--teal); }
+textarea{ resize:vertical; min-height:120px; font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.6; }
+label{ display:block; font-size:13px; color:var(--text-muted); margin-bottom:6px; font-weight:600; }
+.field{ margin-bottom:16px; }
+
+.row-between{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.muted{ color:var(--text-muted); }
+.faint{ color:var(--text-faint); }
+.badge{
+  display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+  padding:3px 9px; border-radius:99px; text-transform:uppercase; letter-spacing:.04em;
+}
+.badge-teal{ background:rgba(63,167,150,.15); color:var(--teal); }
+.badge-amber{ background:rgba(242,166,90,.15); color:var(--amber); }
+.badge-red{ background:rgba(225,90,77,.15); color:var(--red); }
+.badge-green{ background:rgba(76,175,125,.15); color:var(--green); }
+
+.empty{ text-align:center; padding:50px 20px; color:var(--text-muted); }
+.empty .step-mark{ margin:0 auto 14px; opacity:.5; }
+
+/* ---- Slide menu ---- */
+.menu-overlay{
+  position:fixed; inset:0; background:rgba(5,9,14,.6); z-index:50;
+  display:flex; justify-content:flex-end;
+  animation:fadeIn .15s ease;
+}
+@keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
+.menu-panel{
+  width:300px; max-width:85vw; height:100%; background:var(--surface); border-left:1px solid var(--border);
+  padding:22px; display:flex; flex-direction:column; gap:6px;
+  animation:slideIn .18s ease;
+}
+@keyframes slideIn{ from{ transform:translateX(30px); opacity:0;} to{ transform:translateX(0); opacity:1;} }
+.menu-item{
+  display:flex; align-items:center; gap:12px; padding:13px 12px; border-radius:10px;
+  color:var(--text); font-weight:600; font-size:14.5px; border:1px solid transparent;
+}
+.menu-item:hover{ background:var(--surface-2); border-color:var(--border); }
+.menu-item svg{ width:18px; height:18px; color:var(--teal); flex-shrink:0; }
+.menu-foot{ margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+
+/* ---- Modal ---- */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(5,9,14,.65); z-index:60;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.modal{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  width:100%; max-width:520px; max-height:88vh; overflow-y:auto; padding:24px;
+  box-shadow:var(--shadow);
+}
+.modal h3{ margin-top:0; }
+.modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+
+/* ---- Question ---- */
+.q-text{ font-size:17px; font-weight:600; line-height:1.5; margin-bottom:18px; }
+.option{
+  display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:10px;
+  border:1px solid var(--border); background:var(--surface-2); margin-bottom:10px; transition:.12s;
+}
+.option .letter{
+  width:26px; height:26px; border-radius:7px; background:var(--surface); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--text-muted); flex-shrink:0;
+}
+.option.selected{ border-color:var(--teal); background:rgba(63,167,150,.1); }
+.option.selected .letter{ background:var(--teal); color:#062420; border-color:var(--teal); }
+.option.correct{ border-color:var(--green); background:rgba(76,175,125,.12); }
+.option.correct .letter{ background:var(--green); color:#06210f; border-color:var(--green); }
+.option.wrong{ border-color:var(--red); background:rgba(225,90,77,.12); }
+.option.wrong .letter{ background:var(--red); color:#2a0906; border-color:var(--red); }
+
+.qpalette{ display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.qdot{
+  width:34px; height:34px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2);
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--text-muted);
+  font-family:'JetBrains Mono',monospace; position:relative;
+}
+.qdot.current{ border-color:var(--teal); color:var(--teal); }
+.qdot.answered{ background:rgba(63,167,150,.18); color:var(--teal); border-color:var(--teal-dim); }
+.qdot.reviewed:after{
+  content:''; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--amber);
+}
+
+.quiz-actions{ display:flex; gap:8px; }
+.quiz-actions .icon-btn.active{ border-color:var(--amber); color:var(--amber); }
+.quiz-actions .icon-btn.active-save{ border-color:var(--teal); color:var(--teal); }
+
+.progress-track{ height:6px; border-radius:99px; background:var(--surface-2); overflow:hidden; margin-bottom:22px; }
+.progress-fill{ height:100%; background:linear-gradient(90deg,var(--teal),var(--amber)); }
+
+.timer{
+  font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-muted);
+  display:flex; align-items:center; gap:6px;
+}
+
+.login-wrap{ width:100%; max-width:380px; }
+.login-card{ background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:34px 28px; box-shadow:var(--shadow); }
+.login-hint{ font-size:12.5px; color:var(--text-faint); margin-top:14px; line-height:1.6; }
+
+.spinner{ width:22px; height:22px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--teal); animation:spin .7s linear infinite; margin:0 auto; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.loading-block{ padding:60px 0; text-align:center; color:var(--text-muted); }
+
+hr.sep{ border:none; border-top:1px solid var(--border); margin:20px 0; }
+
+table.simple{ width:100%; border-collapse:collapse; }
+table.simple th{ text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); padding:8px 10px; border-bottom:1px solid var(--border); }
+table.simple td{ padding:12px 10px; border-bottom:1px solid var(--border-soft); font-size:14px; }
+table.simple tr:last-child td{ border-bottom:none; }
+
+.review-note{
+  background:rgba(242,166,90,.1); border:1px solid rgba(242,166,90,.35); color:var(--amber);
+  padding:12px 14px; border-radius:10px; font-size:13.5px; margin-bottom:16px;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="center-screen"><div class="spinner"></div></div>
+</div>
+
+<script type="module">
+/* ============ FIREBASE ============ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc,
+  updateDoc, deleteDoc, query, where, serverTimestamp, writeBatch
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBYGlF427yAkry6yX-MqXGJbS3OE4GGrAw",
+  authDomain: "step-34655.firebaseapp.com",
+  projectId: "step-34655",
+  storageBucket: "step-34655.firebasestorage.app",
+  messagingSenderId: "503122600864",
+  appId: "1:503122600864:web:e533c977a96b7b8adcfac5"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+const usersCol = collection(db,'users');
+const sectionsCol = collection(db,'sections');
+const testsCol = collection(db,'tests');
+const questionsCol = collection(db,'questions');
+const attemptsCol = collection(db,'attempts');
+const savedCol = collection(db,'saved');
+const wrongCol = collection(db,'wrong');
+
+const ADMIN_NUMBER = '731';
+
+/* ============ ICONS ============ */
+const ICON = {
+  back:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>`,
+  menu:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`,
+  close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`,
+  trash:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg>`,
+  edit:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
+  bookmark:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z"/></svg>`,
+  bookmarkFilled:`<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z"/></svg>`,
+  review:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.65 6.35A8 8 0 106.35 17.65 8 8 0 0017.65 6.35zM12 8v4l3 2"/></svg>`,
+  reviewActive:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/></svg>`,
+  clock:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2"/></svg>`,
+  section:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15z"/></svg>`,
+  saved:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z"/></svg>`,
+  history:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5M3.05 13a9 9 0 106.36-9.36M12 7v5l4 2"/></svg>`,
+  wrong:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>`,
+  users:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>`,
+  logout:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>`,
+  plus:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`,
+  check:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`,
+};
+
+/* ============ HELPERS ============ */
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDuration(totalSec){
+  totalSec = Math.max(0, Math.round(totalSec||0));
+  const h = Math.floor(totalSec/3600), m = Math.floor((totalSec%3600)/60), s = totalSec%60;
+  if(h>0) return `${h}h ${m}m ${s}s`;
+  if(m>0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+function tsToDate(ts){
+  if(!ts) return null;
+  if(ts.toDate) return ts.toDate();
+  if(ts.seconds) return new Date(ts.seconds*1000);
+  if(ts instanceof Date) return ts;
+  return new Date(ts);
+}
+function fmtDateTime(ts){
+  const d = tsToDate(ts);
+  if(!d) return '—';
+  return d.toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+}
+function fmtTimeRange(startTs, endTs){
+  const s = tsToDate(startTs), e = tsToDate(endTs);
+  if(!s) return '—';
+  const opts = { hour:'numeric', minute:'2-digit' };
+  const dateStr = s.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  const startStr = s.toLocaleTimeString('en-US', opts);
+  const endStr = e ? e.toLocaleTimeString('en-US', opts) : startStr;
+  return `${dateStr} · ${startStr} – ${endStr}`;
+}
+function sortByCreatedAt(arr, dir='asc'){
+  return arr.sort((a,b)=>{
+    const da = a.createdAt ? tsToDate(a.createdAt).getTime() : 0;
+    const db_ = b.createdAt ? tsToDate(b.createdAt).getTime() : 0;
+    return dir==='asc' ? da-db_ : db_-da;
+  });
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function letterOf(i){ return ['A','B','C','D'][i]; }
+
+function parseQuickAdd(raw){
+  const lines = raw.split('\n');
+  let title = '';
+  const questions = [];
+  let current = null;
+  for(let line of lines){
+    line = line.trim();
+    if(!line) continue;
+    if(/^title:/i.test(line)){
+      title = line.replace(/^title:/i,'').trim();
+    } else if(/^q:/i.test(line)){
+      if(current && current.text && current.options.length>=2) questions.push(current);
+      current = { text: line.replace(/^q:/i,'').trim(), options: [], correctIndex: -1 };
+    } else if(/^[a-dA-D]\)/.test(line)){
+      if(!current) continue;
+      let opt = line.replace(/^[a-dA-D]\)/,'').trim();
+      let isCorrect = false;
+      if(opt.endsWith('*')){ isCorrect = true; opt = opt.slice(0,-1).trim(); }
+      current.options.push(opt);
+      if(isCorrect) current.correctIndex = current.options.length - 1;
+    }
+  }
+  if(current && current.text && current.options.length>=2) questions.push(current);
+  return { title, questions };
+}
+
+/* ============ DATA LAYER ============ */
+const Data = {
+  // users
+  async getUser(number){
+    const snap = await getDoc(doc(usersCol, String(number)));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  },
+  async createUser(number, name, isAdmin){
+    const data = { number: String(number), name, isAdmin: !!isAdmin, createdAt: serverTimestamp() };
+    await setDoc(doc(usersCol, String(number)), data);
+    return { id: String(number), ...data, createdAt: new Date() };
+  },
+  async getAllUsers(){
+    const snap = await getDocs(usersCol);
+    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'desc');
+  },
+
+  // sections
+  async getSections(){
+    const snap = await getDocs(sectionsCol);
+    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
+  },
+  async getSection(id){
+    const snap = await getDoc(doc(sectionsCol,id));
+    return snap.exists() ? {id:snap.id,...snap.data()} : null;
+  },
+  async addSection(name){
+    const ref = await addDoc(sectionsCol, { name, createdAt: serverTimestamp() });
+    return ref.id;
+  },
+  async updateSection(id, name){ await updateDoc(doc(sectionsCol,id), { name }); },
+  async deleteSection(id){
+    const tests = await Data.getTests(id);
+    for(const t of tests){ await Data.deleteTest(t.id); }
+    await deleteDoc(doc(sectionsCol,id));
+  },
+
+  // tests
+  async getTests(sectionId){
+    const snap = await getDocs(query(testsCol, where('sectionId','==',sectionId)));
+    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
+  },
+  async getTest(id){
+    const snap = await getDoc(doc(testsCol,id));
+    return snap.exists() ? {id:snap.id,...snap.data()} : null;
+  },
+  async addTest(sectionId, title){
+    const ref = await addDoc(testsCol, { sectionId, title, createdAt: serverTimestamp() });
+    return ref.id;
+  },
+  async updateTestTitle(id, title){ await updateDoc(doc(testsCol,id), { title }); },
+  async deleteTest(id){
+    const qs = await Data.getQuestions(id);
+    const batch = writeBatch(db);
+    qs.forEach(q => batch.delete(doc(questionsCol,q.id)));
+    batch.delete(doc(testsCol,id));
+    await batch.commit();
+  },
+
+  // questions
+  async getQuestions(testId){
+    const snap = await getDocs(query(questionsCol, where('testId','==',testId)));
+    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
+  },
+  async getQuestionsBySection(sectionId){
+    const snap = await getDocs(query(questionsCol, where('sectionId','==',sectionId)));
+    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
+  },
+  async getQuestionsByIds(ids){
+    const out = [];
+    for(const id of ids){
+      const snap = await getDoc(doc(questionsCol,id));
+      if(snap.exists()) out.push({id:snap.id,...snap.data()});
+    }
+    return out;
+  },
+  async addQuestion(testId, sectionId, q){
+    const ref = await addDoc(questionsCol, {
+      testId, sectionId, text:q.text, options:q.options, correctIndex:q.correctIndex, createdAt: serverTimestamp()
+    });
+    return ref.id;
+  },
+  async updateQuestion(id, data){ await updateDoc(doc(questionsCol,id), data); },
+  async deleteQuestion(id){ await deleteDoc(doc(questionsCol,id)); },
+
+  // attempts
+  async addAttempt(data){
+    const ref = await addDoc(attemptsCol, { ...data, createdAt: serverTimestamp() });
+    return ref.id;
+  },
+  async getAttempt(id){
+    const snap = await getDoc(doc(attemptsCol,id));
+    return snap.exists() ? {id:snap.id,...snap.data()} : null;
+  },
+  async getUserAttempts(userId){
+    const snap = await getDocs(query(attemptsCol, where('userId','==',userId)));
+    return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=> tsToDate(b.startedAt) - tsToDate(a.startedAt));
+  },
+  async getAllAttemptsCount(){
+    const snap = await getDocs(attemptsCol);
+    return snap.size;
+  },
+
+  // saved
+  savedId(userId, questionId){ return `${userId}_${questionId}`; },
+  async isSaved(userId, questionId){
+    const snap = await getDoc(doc(savedCol, Data.savedId(userId,questionId)));
+    return snap.exists();
+  },
+  async addSaved(userId, q){
+    await setDoc(doc(savedCol, Data.savedId(userId,q.id)), {
+      userId, questionId:q.id, testId:q.testId, sectionId:q.sectionId, savedAt: serverTimestamp()
+    });
+  },
+  async removeSaved(userId, questionId){
+    await deleteDoc(doc(savedCol, Data.savedId(userId,questionId)));
+  },
+  async getSavedByUser(userId){
+    const snap = await getDocs(query(savedCol, where('userId','==',userId)));
+    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data(), createdAt:d.data().savedAt})), 'desc');
+  },
+
+  // wrong
+  wrongId(userId, questionId){ return `${userId}_${questionId}`; },
+  async upsertWrong(userId, q){
+    await setDoc(doc(wrongCol, Data.wrongId(userId,q.id)), {
+      userId, questionId:q.id, testId:q.testId, sectionId:q.sectionId, updatedAt: serverTimestamp()
+    });
+  },
+  async removeWrong(userId, questionId){
+    try{ await deleteDoc(doc(wrongCol, Data.wrongId(userId,questionId))); }catch(e){}
+  },
+  async getWrongByUser(userId){
+    const snap = await getDocs(query(wrongCol, where('userId','==',userId)));
+    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data(), createdAt:d.data().updatedAt})), 'desc');
+  },
+};
+
+/* ============ STATE ============ */
+const state = {
+  user: null,
+  pendingNumber: null,
+  menuOpen: false,
+  modal: null,      // {type, ...payload}
+  quiz: null,       // active quiz session
+  lastAttempt: null,// cached just-finished attempt for result screen
+  cache: {},        // misc per-render cache
+};
+
+const app = document.getElementById('app');
+
+function navigate(hash){ location.hash = hash; }
+function goBack(){ history.back(); }
+function setModal(m){ state.modal = m; render(); }
+function closeModal(){ state.modal = null; render(); }
+
+/* ============ SHARED UI ============ */
+function menuItemsFor(user){
+  if(user.isAdmin){
+    return [
+      { icon: ICON.section, label:'Manage Sections', hash:'#/admin/sections' },
+      { icon: ICON.users,   label:'Manage Users',    hash:'#/admin/users' },
+    ];
+  }
+  return [
+    { icon: ICON.wrong,   label:'Wrong Questions',  hash:'#/user/wrong' },
+    { icon: ICON.section, label:'Sections',          hash:'#/user/sections' },
+    { icon: ICON.saved,   label:'Saved Questions',   hash:'#/user/saved' },
+    { icon: ICON.history, label:'Test History',      hash:'#/user/history' },
+  ];
+}
+
+function renderTopbar(){
+  return `
+  <div class="topbar">
+    <div class="left">
+      <button class="icon-btn" data-action="logout" title="Log out">${ICON.logout}</button>
+      <button class="icon-btn" data-action="back" title="Back">${ICON.back}</button>
+    </div>
+    <div class="brand">
+      <div class="step-mark"><i></i><i></i><i></i><i></i></div>
+      <span class="wordmark">STEP<span>.</span></span>
+    </div>
+    <button class="icon-btn" data-action="open-menu" title="Menu">${ICON.menu}</button>
+  </div>`;
+}
+
+function renderMenu(){
+  if(!state.menuOpen || !state.user) return '';
+  const items = menuItemsFor(state.user);
+  return `
+  <div class="menu-overlay" data-action="close-menu">
+    <div class="menu-panel" onclick="event.stopPropagation()">
+      <div class="row-between" style="margin-bottom:18px;">
+        <span style="font-weight:700;font-size:15px;">Menu</span>
+        <button class="icon-btn" data-action="close-menu">${ICON.close}</button>
+      </div>
+      ${items.map(it=>`<a class="menu-item" data-action="go" data-hash="${it.hash}">${it.icon}${it.label}</a>`).join('')}
+      <div class="menu-foot">
+        <a class="menu-item" data-action="logout">${ICON.logout}Log out</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderModal(){
+  const m = state.modal;
+  if(!m) return '';
+  let body = '';
+  if(m.type==='confirm'){
+    body = `
+      <h3>${esc(m.title)}</h3>
+      <p class="muted">${esc(m.message)}</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
+        <button class="btn btn-danger" style="background:var(--red);color:#fff;" data-action="modal-confirm">${esc(m.confirmLabel||'Delete')}</button>
+      </div>`;
+  } else if(m.type==='textInput'){
+    body = `
+      <h3>${esc(m.title)}</h3>
+      <div class="field">
+        <label>${esc(m.label)}</label>
+        <input type="text" id="modal-input-val" value="${esc(m.value||'')}" placeholder="${esc(m.placeholder||'')}" autofocus />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" data-action="modal-confirm">${esc(m.confirmLabel||'Save')}</button>
+      </div>`;
+  } else if(m.type==='choice'){
+    body = `
+      <h3>${esc(m.title)}</h3>
+      <div class="grid" style="margin-top:14px;">
+        ${m.options.map(o=>`<button class="btn btn-block" data-action="modal-choice" data-value="${esc(o.value)}">${esc(o.label)}</button>`).join('')}
+      </div>
+      <div class="modal-actions"><button class="btn btn-ghost" data-action="modal-cancel">Cancel</button></div>`;
+  } else if(m.type==='quickAdd'){
+    body = `
+      <h3>Quick Add — Paste Questions</h3>
+      <p class="muted" style="font-size:13px;line-height:1.6;">
+        Start with <code>Title: ...</code>, then each question as <code>Q: ...</code> followed by
+        <code>A) B) C) D)</code> options. Mark the correct option with <code>*</code> right after it.
+      </p>
+      <div class="field">
+        <textarea id="modal-quickadd" rows="14" placeholder="Title: Cardiology Quiz 1
+
+Q: What is the most common cause of nephrotic syndrome in children?
+A) IgA nephropathy
+B) Minimal change disease*
+C) Membranous nephropathy
+D) FSGS">${esc(m.value||'')}</textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" data-action="modal-quickadd-submit">Parse & Add</button>
+      </div>`;
+  } else if(m.type==='question'){
+    const q = m.question || {text:'',options:['','','',''],correctIndex:0};
+    body = `
+      <h3>${m.editId ? 'Edit Question' : 'Add Question'}</h3>
+      <div class="field">
+        <label>Question text</label>
+        <textarea id="qm-text" rows="3" style="font-family:'Inter',sans-serif;font-size:14px;">${esc(q.text)}</textarea>
+      </div>
+      ${[0,1,2,3].map(i=>`
+        <div class="field" style="display:flex;align-items:center;gap:10px;">
+          <input type="radio" name="qm-correct" value="${i}" id="qm-correct-${i}" ${q.correctIndex===i?'checked':''} style="width:18px;height:18px;flex-shrink:0;" />
+          <input type="text" id="qm-opt-${i}" value="${esc(q.options[i]||'')}" placeholder="Option ${letterOf(i)}" style="flex:1;" />
+        </div>`).join('')}
+      <p class="faint" style="font-size:12px;">Select the radio button next to the correct answer.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" data-action="modal-question-submit" data-edit-id="${m.editId||''}">${m.editId?'Save':'Add'}</button>
+      </div>`;
+  } else if(m.type==='reviewGate'){
+    body = `
+      <h3>Marked for Review</h3>
+      <p class="muted">You flagged ${m.items.length} question(s) for review before submitting.</p>
+      <div style="max-height:260px;overflow-y:auto;margin:14px 0;">
+        ${m.items.map(it=>`
+          <div class="row-between clickable" data-action="review-jump" data-index="${it.index}" style="padding:10px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px;">
+            <span style="font-size:13.5px;">Q${it.index+1}. ${esc(it.text.slice(0,60))}${it.text.length>60?'…':''}</span>
+            <span class="badge badge-amber">Review</span>
+          </div>`).join('')}
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-action="modal-cancel">Keep Reviewing</button>
+        <button class="btn btn-primary" data-action="quiz-submit-final">Submit Anyway</button>
+      </div>`;
+  }
+  return `<div class="modal-overlay" data-action="modal-backdrop"><div class="modal" onclick="event.stopPropagation()">${body}</div></div>`;
+}
+
+/* ============ ROUTER ============ */
+async function render(){
+  const hash = location.hash || '#/login';
+  const parts = hash.replace(/^#\//,'').split('/').filter(Boolean);
+
+  // guard: require login for anything besides login/name
+  if(parts[0] !== 'login' && parts[0] !== 'name' && !state.user){
+    app.innerHTML = wrap(renderLoadingScreen());
+    location.hash = '#/login';
+    return;
+  }
+
+  let html = '';
+  try{
+    if(parts[0]==='login') html = renderLogin();
+    else if(parts[0]==='name') html = renderNamePrompt();
+    else if(parts[0]==='user') html = await renderUserRoute(parts.slice(1));
+    else if(parts[0]==='admin') html = await renderAdminRoute(parts.slice(1));
+    else html = renderLogin();
+  }catch(err){
+    console.error(err);
+    html = `<div class="empty">Something went wrong loading this page.<br><span class="faint">${esc(err.message||err)}</span></div>`;
+  }
+  app.innerHTML = wrap(html, parts[0]!=='login' && parts[0]!=='name');
+}
+function wrap(inner, withTopbar){
+  return `${withTopbar ? renderTopbar() : ''}${inner}${renderMenu()}${renderModal()}`;
+}
+function renderLoadingScreen(){ return `<div class="center-screen"><div class="spinner"></div></div>`; }
+
+/* ============ AUTH SCREENS ============ */
+function renderLogin(){
+  return `
+  <div class="center-screen">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="brand" style="margin-bottom:22px;">
+          <div class="step-mark"><i></i><i></i><i></i><i></i></div>
+          <span class="wordmark">STEP<span>.</span></span>
+        </div>
+        <h2 style="margin:0 0 6px;">Sign in</h2>
+        <p class="muted" style="margin:0 0 22px;font-size:14px;">Enter any number to sign in. New numbers create an account automatically.</p>
+        <form id="login-form">
+          <div class="field">
+            <label>Your number</label>
+            <input type="tel" inputmode="numeric" id="login-number" placeholder="e.g. 42" autofocus required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Continue</button>
+        </form>
+        <p class="login-hint">Tip: numbers are personal IDs, not passwords — pick any number that isn't taken yet and it becomes yours.</p>
+      </div>
+    </div>
+  </div>`;
+}
+function renderNamePrompt(){
+  return `
+  <div class="center-screen">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="brand" style="margin-bottom:22px;">
+          <div class="step-mark"><i></i><i></i><i></i><i></i></div>
+          <span class="wordmark">STEP<span>.</span></span>
+        </div>
+        <h2 style="margin:0 0 6px;">Welcome, #${esc(state.pendingNumber)}</h2>
+        <p class="muted" style="margin:0 0 22px;font-size:14px;">This number is new — what should we call you?</p>
+        <form id="name-form">
+          <div class="field">
+            <label>Your name</label>
+            <input type="text" id="name-input" placeholder="Full name" autofocus required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Create account</button>
+        </form>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============ USER ROUTES ============ */
+async function renderUserRoute(segs){
+  const [section] = segs;
+  if(section==='home' || !section) return await renderUserHome();
+  if(section==='wrong') return await renderWrongQuestions();
+  if(section==='saved') return await renderSavedQuestions();
+  if(section==='history'){
+    if(segs[1]) return await renderHistoryDetail(segs[1]);
+    return await renderHistory();
+  }
+  if(section==='sections'){
+    if(segs[1]) return await renderSectionTests(segs[1]);
+    return await renderSections();
+  }
+  if(section==='quiz'){
+    return await renderQuizRoute(segs.slice(1));
+  }
+  if(section==='result'){
+    return await renderResult(segs[1]);
+  }
+  return renderLoadingScreen();
+}
+
+async function renderUserHome(){
+  const attempts = await Data.getUserAttempts(state.user.id);
+  const total = attempts.length;
+  let sumScore=0,sumTotal=0,sumDur=0;
+  attempts.forEach(a=>{ sumScore+=a.score||0; sumTotal+=a.total||0; sumDur+=a.durationSec||0; });
+  const avgPct = sumTotal ? Math.round((sumScore/sumTotal)*100) : 0;
+  const avgDur = total ? sumDur/total : 0;
+
+  return `
+  <h1 class="page-title">Hi, ${esc(state.user.name)} <span class="faint mono" style="font-size:15px;">#${esc(state.user.number)}</span></h1>
+  <p class="page-sub">Here's how your practice is going so far.</p>
+  <div class="grid grid-3">
+    <div class="stat"><div class="num">${total}</div><div class="label">Tests taken</div></div>
+    <div class="stat"><div class="num">${sumScore}/${sumTotal}</div><div class="label">Total correct</div></div>
+    <div class="stat"><div class="num">${avgPct}%</div><div class="label">Average score</div></div>
+    <div class="stat"><div class="num">${fmtDuration(sumDur)}</div><div class="label">Total time spent</div></div>
+    <div class="stat"><div class="num">${fmtDuration(avgDur)}</div><div class="label">Average time / test</div></div>
+    <div class="stat clickable" data-action="go" data-hash="#/user/sections"><div class="num" style="color:var(--teal);">→</div><div class="label">Start practicing</div></div>
+  </div>`;
+}
+
+async function renderWrongQuestions(){
+  const items = await Data.getWrongByUser(state.user.id);
+  const detailed = await enrichQuestionRefs(items);
+  return `
+  <h1 class="page-title">Wrong Questions</h1>
+  <p class="page-sub">Questions you missed or skipped, gathered in one place.</p>
+  ${detailed.length ? `<button class="btn btn-primary" style="margin-bottom:16px;" data-action="review-list" data-source="wrong">Review All Questions</button>` : ''}
+  ${detailed.length===0 ? emptyBlock('No wrong questions yet — nice work.') :
+    detailed.map(it => renderQuestionRefCard(it, 'wrong')).join('')}
+  `;
+}
+
+async function renderSavedQuestions(){
+  const items = await Data.getSavedByUser(state.user.id);
+  const detailed = await enrichQuestionRefs(items);
+  return `
+  <h1 class="page-title">Saved Questions</h1>
+  <p class="page-sub">Your bookmarked questions for quick review.</p>
+  ${detailed.length ? `<button class="btn btn-primary" style="margin-bottom:16px;" data-action="review-list" data-source="saved">Review All Questions</button>` : ''}
+  ${detailed.length===0 ? emptyBlock("You haven't saved any questions yet.") :
+    detailed.map(it => renderQuestionRefCard(it, 'saved')).join('')}
+  `;
+}
+
+async function enrichQuestionRefs(items){
+  const out = [];
+  for(const it of items){
+    const qSnap = await getDoc(doc(questionsCol, it.questionId));
+    if(!qSnap.exists()) continue;
+    const q = { id:qSnap.id, ...qSnap.data() };
+    const [test, sec] = await Promise.all([ Data.getTest(q.testId), Data.getSection(q.sectionId) ]);
+    out.push({ ref:it, question:q, testTitle: test?.title||'—', sectionName: sec?.name||'—' });
+  }
+  return out;
+}
+function renderQuestionRefCard(it, kind){
+  return `
+  <div class="card">
+    <div class="row-between" style="align-items:flex-start;">
+      <div style="flex:1;">
+        <div class="badge badge-teal" style="margin-bottom:8px;">${esc(it.sectionName)} · ${esc(it.testTitle)}</div>
+        <div style="font-size:14.5px;font-weight:600;line-height:1.5;">${esc(it.question.text)}</div>
+      </div>
+      <button class="icon-btn" data-action="delete-ref" data-kind="${kind}" data-qid="${it.question.id}" title="Remove">${ICON.trash}</button>
+    </div>
+  </div>`;
+}
+function emptyBlock(msg){
+  return `<div class="empty"><div class="step-mark"><i></i><i></i><i></i><i></i></div>${esc(msg)}</div>`;
+}
+
+async function renderHistory(){
+  const attempts = await Data.getUserAttempts(state.user.id);
+  return `
+  <h1 class="page-title">Test History</h1>
+  <p class="page-sub">Every test you've attempted, with timing and results.</p>
+  ${attempts.length===0 ? emptyBlock('No tests taken yet.') : attempts.map(a=>`
+    <div class="card">
+      <div class="row-between" style="align-items:flex-start;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div class="badge badge-teal" style="margin-bottom:8px;">${esc(a.sectionName||'—')}</div>
+          <div style="font-weight:700;font-size:15.5px;">${esc(a.testTitle||'Test')}</div>
+          <div class="muted" style="font-size:13px;margin-top:4px;">${fmtTimeRange(a.startedAt, a.finishedAt)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="mono" style="font-size:18px;font-weight:600;color:var(--amber);">${a.score}/${a.total}</div>
+          <div class="muted mono" style="font-size:12px;">${fmtDuration(a.durationSec)}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-sm btn-ghost" data-action="go" data-hash="#/user/history/${a.id}">Details</button>
+      </div>
+    </div>
+  `).join('')}`;
+}
+
+async function renderHistoryDetail(attemptId){
+  const a = await Data.getAttempt(attemptId);
+  if(!a) return emptyBlock('Attempt not found.');
+  return `
+  <h1 class="page-title">${esc(a.testTitle||'Test')}</h1>
+  <p class="page-sub">${esc(a.sectionName||'')} · ${fmtTimeRange(a.startedAt,a.finishedAt)} · Score ${a.score}/${a.total} · ${fmtDuration(a.durationSec)}</p>
+  ${(a.answers||[]).map((ans,i)=>`
+    <div class="card">
+      <div class="row-between" style="align-items:flex-start;">
+        <div style="font-weight:600;font-size:14.5px;flex:1;">Q${i+1}. ${esc(ans.text)}</div>
+        <span class="badge ${ans.isCorrect?'badge-green':'badge-red'}">${ans.isCorrect?'Correct':'Wrong'}</span>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="badge ${ans.saved?'badge-amber':'badge-teal'}" style="opacity:${ans.saved?1:.4}">${ans.saved?'Saved':'Not saved'}</span>
+        <span class="badge ${ans.reviewed?'badge-amber':'badge-teal'}" style="opacity:${ans.reviewed?1:.4}">${ans.reviewed?'Marked for review':'Not marked'}</span>
+        <span class="badge badge-teal mono">${fmtDuration(ans.timeSpentSec)}</span>
+      </div>
+    </div>
+  `).join('')}`;
+}
+
+async function renderSections(){
+  const sections = await Data.getSections();
+  return `
+  <h1 class="page-title">Sections</h1>
+  <p class="page-sub">Pick a section to see its tests, or run everything at once.</p>
+  ${sections.length ? `<button class="btn btn-amber" style="margin-bottom:16px;" data-action="start-quiz" data-scope="allSections">Test All Sections</button>` : ''}
+  ${sections.length===0 ? emptyBlock('No sections yet. Ask your admin to add one.') :
+    `<div class="grid grid-2">${sections.map(s=>`
+      <div class="card clickable" data-action="go" data-hash="#/user/sections/${s.id}">
+        <div class="row-between">
+          <div style="font-weight:700;font-size:16px;">${esc(s.name)}</div>
+          <span style="color:var(--teal);">${ICON.section}</span>
+        </div>
+      </div>`).join('')}</div>`}
+  `;
+}
+
+async function renderSectionTests(sectionId){
+  const [sec, tests] = await Promise.all([ Data.getSection(sectionId), Data.getTests(sectionId) ]);
+  if(!sec) return emptyBlock('Section not found.');
+  return `
+  <h1 class="page-title">${esc(sec.name)}</h1>
+  <p class="page-sub">Choose a test to begin, or run the whole section.</p>
+  ${tests.length ? `<button class="btn btn-amber" style="margin-bottom:16px;" data-action="start-quiz" data-scope="sectionAll" data-section-id="${sectionId}">Test All Tests in This Section</button>` : ''}
+  ${tests.length===0 ? emptyBlock('No tests in this section yet.') :
+    tests.map(t=>`
+      <div class="card clickable" data-action="start-quiz" data-scope="test" data-section-id="${sectionId}" data-test-id="${t.id}">
+        <div class="row-between">
+          <div style="font-weight:700;font-size:15.5px;">${esc(t.title)}</div>
+          <span style="color:var(--teal);">${ICON.check}</span>
+        </div>
+      </div>`).join('')}
+  `;
+}
+
+/* ============ QUIZ ENGINE ============ */
+async function buildQuizForScope(scope, sectionId, testId){
+  let questions=[], testTitle='', sectionName='';
+  if(scope==='test'){
+    const [test,sec] = await Promise.all([Data.getTest(testId), Data.getSection(sectionId)]);
+    questions = await Data.getQuestions(testId);
+    testTitle = test?.title||'Test'; sectionName = sec?.name||'';
+  } else if(scope==='sectionAll'){
+    const sec = await Data.getSection(sectionId);
+    questions = await Data.getQuestionsBySection(sectionId);
+    testTitle = 'All Tests'; sectionName = sec?.name||'';
+  } else if(scope==='allSections'){
+    const snap = await getDocs(questionsCol);
+    questions = snap.docs.map(d=>({id:d.id,...d.data()}));
+    testTitle = 'All Sections'; sectionName = 'All Sections';
+  }
+  return { scope, sectionId:sectionId||null, testId:testId||null, testTitle, sectionName, questions };
+}
+function newQuizSession(built, key){
+  return {
+    key,
+    scope: built.scope, sectionId: built.sectionId, testId: built.testId,
+    testTitle: built.testTitle, sectionName: built.sectionName,
+    questions: built.questions,
+    currentIndex: 0,
+    answers: {}, savedSet: new Set(), reviewSet: new Set(), timeSpent: {},
+    questionShownAt: Date.now(), quizStartedAt: Date.now(), startedAtWall: new Date(),
+  };
+}
+async function attachSavedSet(session){
+  const snap = await getDocs(query(savedCol, where('userId','==',state.user.id)));
+  const savedQids = new Set(snap.docs.map(d=>d.data().questionId));
+  session.questions.forEach(q=>{ if(savedQids.has(q.id)) session.savedSet.add(q.id); });
+}
+async function renderQuizRoute(segs){
+  const [scope, a, b] = segs;
+  let sectionId=null, testId=null;
+  if(scope==='test'){ sectionId=a; testId=b; }
+  else if(scope==='sectionAll'){ sectionId=a; }
+  else if(scope==='custom'){ testId=a; }
+
+  const expectedKey = `${scope}:${sectionId||''}:${testId||''}`;
+  if(!state.quiz || state.quiz.key!==expectedKey){
+    let built;
+    if(scope==='custom'){
+      const ids = state.cache.customQuestionIds||[];
+      const questions = await Data.getQuestionsByIds(ids);
+      built = { scope:'custom', sectionId:null, testId:a,
+        testTitle: a==='wrong' ? 'Wrong Questions Review' : 'Saved Questions Review',
+        sectionName: 'Review', questions };
+    } else {
+      built = await buildQuizForScope(scope, sectionId, testId);
+    }
+    if(!built.questions.length) return emptyBlock('No questions available for this selection yet.');
+    state.quiz = newQuizSession(built, expectedKey);
+    await attachSavedSet(state.quiz);
+  }
+  return renderQuizScreen();
+}
+function currentQuestion(){ return state.quiz.questions[state.quiz.currentIndex]; }
+function accumulateCurrentQuestionTime(){
+  const quiz = state.quiz; if(!quiz) return;
+  const q = currentQuestion();
+  const now = Date.now();
+  quiz.timeSpent[q.id] = (quiz.timeSpent[q.id]||0) + (now - quiz.questionShownAt);
+  quiz.questionShownAt = now;
+}
+function updateQuizTimerDisplay(){
+  if(!state.quiz) return;
+  const el = document.getElementById('quiz-timer');
+  if(!el) return;
+  const elapsed = Math.floor((Date.now()-state.quiz.quizStartedAt)/1000);
+  const m = String(Math.floor(elapsed/60)).padStart(2,'0');
+  const s = String(elapsed%60).padStart(2,'0');
+  el.textContent = `${m}:${s}`;
+}
+setInterval(updateQuizTimerDisplay, 1000);
+
+function renderQuizScreen(){
+  const quiz = state.quiz;
+  const q = currentQuestion();
+  const total = quiz.questions.length;
+  const answeredCount = Object.keys(quiz.answers).length;
+  const selected = quiz.answers[q.id];
+  const isSaved = quiz.savedSet.has(q.id);
+  const isReviewed = quiz.reviewSet.has(q.id);
+  const pct = Math.round(((quiz.currentIndex+1)/total)*100);
+  return `
+  <div class="row-between" style="margin-bottom:6px;">
+    <span class="badge badge-teal">${esc(quiz.sectionName)} · ${esc(quiz.testTitle)}</span>
+    <span class="timer">${ICON.clock}<span id="quiz-timer">00:00</span></span>
+  </div>
+  <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+  <div class="row-between" style="margin-bottom:10px;">
+    <span class="muted mono" style="font-size:13px;">Question ${quiz.currentIndex+1} / ${total} · ${answeredCount} answered</span>
+    <div class="quiz-actions">
+      <button class="icon-btn ${isSaved?'active-save':''}" data-action="toggle-save" title="Save question">${isSaved?ICON.bookmarkFilled:ICON.bookmark}</button>
+      <button class="icon-btn ${isReviewed?'active':''}" data-action="toggle-review" title="Mark for review">${ICON.review}</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="q-text">${esc(q.text)}</div>
+    ${q.options.map((opt,i)=>`
+      <div class="option ${selected===i?'selected':''}" data-action="select-option" data-index="${i}">
+        <span class="letter">${letterOf(i)}</span><span>${esc(opt)}</span>
+      </div>`).join('')}
+  </div>
+  <div class="qpalette">
+    ${quiz.questions.map((qq,i)=>`
+      <button class="qdot ${i===quiz.currentIndex?'current':''} ${quiz.answers[qq.id]!==undefined?'answered':''} ${quiz.reviewSet.has(qq.id)?'reviewed':''}" data-action="goto-question" data-index="${i}">${i+1}</button>
+    `).join('')}
+  </div>
+  <div class="row-between">
+    <button class="btn btn-ghost" data-action="quiz-prev" ${quiz.currentIndex===0?'disabled':''}>Previous</button>
+    ${quiz.currentIndex<total-1
+      ? `<button class="btn btn-primary" data-action="quiz-next">Next</button>`
+      : `<button class="btn btn-amber" data-action="quiz-submit">Submit Test</button>`}
+  </div>`;
+}
+async function toggleSave(){
+  const quiz = state.quiz; const q = currentQuestion();
+  if(quiz.savedSet.has(q.id)){ quiz.savedSet.delete(q.id); await Data.removeSaved(state.user.id, q.id); }
+  else { quiz.savedSet.add(q.id); await Data.addSaved(state.user.id, q); }
+  render();
+}
+function toggleReview(){
+  const quiz = state.quiz; const q = currentQuestion();
+  if(quiz.reviewSet.has(q.id)) quiz.reviewSet.delete(q.id); else quiz.reviewSet.add(q.id);
+  render();
+}
+function selectOption(idx){
+  const quiz = state.quiz; const q = currentQuestion();
+  quiz.answers[q.id] = idx; render();
+}
+function gotoQuestion(idx){
+  accumulateCurrentQuestionTime();
+  state.quiz.currentIndex = idx; state.quiz.questionShownAt = Date.now(); render();
+}
+function quizNext(){ if(state.quiz.currentIndex < state.quiz.questions.length-1) gotoQuestion(state.quiz.currentIndex+1); }
+function quizPrev(){ if(state.quiz.currentIndex > 0) gotoQuestion(state.quiz.currentIndex-1); }
+function buildReviewGateItems(){
+  const quiz = state.quiz, items = [];
+  quiz.questions.forEach((q,i)=>{ if(quiz.reviewSet.has(q.id)) items.push({index:i, text:q.text}); });
+  return items;
+}
+function quizSubmitClicked(){
+  accumulateCurrentQuestionTime();
+  const items = buildReviewGateItems();
+  if(items.length>0){ setModal({ type:'reviewGate', items }); }
+  else { finalizeQuiz(); }
+}
+async function finalizeQuiz(){
+  const quiz = state.quiz;
+  const durationSec = Math.round((Date.now()-quiz.quizStartedAt)/1000);
+  const answersArr = [];
+  for(const q of quiz.questions){
+    const selectedIndex = quiz.answers[q.id] !== undefined ? quiz.answers[q.id] : -1;
+    const isCorrect = selectedIndex === q.correctIndex;
+    const timeSpentSec = Math.round((quiz.timeSpent[q.id]||0)/1000);
+    answersArr.push({
+      questionId:q.id, text:q.text, options:q.options, correctIndex:q.correctIndex,
+      selectedIndex, isCorrect, timeSpentSec, saved: quiz.savedSet.has(q.id), reviewed: quiz.reviewSet.has(q.id)
+    });
+    if(isCorrect) await Data.removeWrong(state.user.id, q.id);
+    else await Data.upsertWrong(state.user.id, q);
+  }
+  const score = answersArr.filter(a=>a.isCorrect).length;
+  const attemptId = await Data.addAttempt({
+    userId: state.user.id,
+    scopeType: quiz.scope,
+    sectionId: quiz.sectionId || null,
+    sectionName: quiz.sectionName,
+    testId: quiz.testId || null,
+    testTitle: quiz.testTitle,
+    startedAt: quiz.startedAtWall,
+    finishedAt: new Date(),
+    durationSec, score, total: answersArr.length,
+    answers: answersArr,
+  });
+  state.quiz = null; state.modal = null;
+  navigate(`#/user/result/${attemptId}`);
+}
+async function renderResult(attemptId){
+  const a = await Data.getAttempt(attemptId);
+  if(!a) return emptyBlock('Result not found.');
+  const pct = a.total ? Math.round((a.score/a.total)*100) : 0;
+  const wrongAnswers = (a.answers||[]).filter(x=>!x.isCorrect);
+  let nextTestHtml = '';
+  if(a.scopeType==='test' && a.sectionId && a.testId){
+    const tests = await Data.getTests(a.sectionId);
+    const idx = tests.findIndex(t=>t.id===a.testId);
+    const next = idx>=0 ? tests[idx+1] : null;
+    if(next) nextTestHtml = `<button class="btn btn-primary" data-action="start-quiz" data-scope="test" data-section-id="${a.sectionId}" data-test-id="${next.id}">Next Test</button>`;
+  }
+  let retakeHtml = '';
+  if(a.scopeType==='test') retakeHtml = `<button class="btn btn-ghost" data-action="start-quiz" data-scope="test" data-section-id="${a.sectionId}" data-test-id="${a.testId}">Retake Test</button>`;
+  else if(a.scopeType==='sectionAll') retakeHtml = `<button class="btn btn-ghost" data-action="start-quiz" data-scope="sectionAll" data-section-id="${a.sectionId}">Retake</button>`;
+  else if(a.scopeType==='allSections') retakeHtml = `<button class="btn btn-ghost" data-action="start-quiz" data-scope="allSections">Retake</button>`;
+  return `
+  <div class="center-screen" style="min-height:0;padding:30px 0;">
+    <div style="width:100%;max-width:480px;">
+      <div class="card" style="text-align:center;">
+        <div class="step-mark" style="justify-content:center;margin-bottom:14px;"><i></i><i></i><i></i><i></i></div>
+        <div style="font-size:38px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--amber);">${a.score}/${a.total}</div>
+        <div class="muted" style="margin-bottom:10px;">${pct}% correct</div>
+        <div class="muted mono" style="font-size:13px;">${ICON.clock} ${fmtDuration(a.durationSec)}</div>
+      </div>
+      <div class="row-between" style="gap:10px;flex-wrap:wrap;">
+        ${nextTestHtml}${retakeHtml}
+        <button class="btn btn-ghost" data-action="go" data-hash="#/user/sections">Back to Sections</button>
+      </div>
+    </div>
+  </div>
+  ${wrongAnswers.length ? `<h2 style="margin-top:10px;">Missed Questions</h2>` : ''}
+  ${wrongAnswers.map(w=>`
+    <div class="card">
+      <div class="q-text" style="font-size:15px;">${esc(w.text)}</div>
+      ${w.options.map((opt,i)=>{
+        let cls='';
+        if(i===w.correctIndex) cls='correct'; else if(i===w.selectedIndex) cls='wrong';
+        return `<div class="option ${cls}"><span class="letter">${letterOf(i)}</span><span>${esc(opt)}</span></div>`;
+      }).join('')}
+    </div>`).join('')}
+  `;
+}
+async function startQuizAction(scope, sectionId, testId){
+  state.quiz = null;
+  let hash;
+  if(scope==='test') hash = `#/user/quiz/test/${sectionId}/${testId}`;
+  else if(scope==='sectionAll') hash = `#/user/quiz/sectionAll/${sectionId}`;
+  else hash = `#/user/quiz/allSections`;
+  if(location.hash===hash) await render(); else navigate(hash);
+}
+async function startReviewListAction(source){
+  const items = source==='wrong' ? await Data.getWrongByUser(state.user.id) : await Data.getSavedByUser(state.user.id);
+  state.cache.customQuestionIds = items.map(i=>i.questionId);
+  state.quiz = null;
+  const hash = `#/user/quiz/custom/${source}`;
+  if(location.hash===hash) await render(); else navigate(hash);
+}
+
+/* ============ ADMIN ROUTES ============ */
+async function renderAdminRoute(segs){
+  const [section] = segs;
+  if(section==='home' || !section) return await renderAdminHome();
+  if(section==='users') return await renderAdminUsers();
+  if(section==='sections'){
+    if(segs[1] && segs[2]==='tests'){
+      if(segs[3]) return await renderAdminTestEdit(segs[1], segs[3]);
+      return await renderAdminSectionTests(segs[1]);
+    }
+    return await renderAdminSections();
+  }
+  return renderLoadingScreen();
+}
+
+async function renderAdminHome(){
+  const [sections, questionsSnap, attemptsCount, users] = await Promise.all([
+    Data.getSections(), getDocs(questionsCol), Data.getAllAttemptsCount(), Data.getAllUsers()
+  ]);
+  let testsTotal = 0;
+  for(const s of sections){ testsTotal += (await Data.getTests(s.id)).length; }
+  return `
+  <h1 class="page-title">Admin Overview</h1>
+  <p class="page-sub">A quick look at everything you've built.</p>
+  <div class="grid grid-3">
+    <div class="stat"><div class="num">${sections.length}</div><div class="label">Sections</div></div>
+    <div class="stat"><div class="num">${testsTotal}</div><div class="label">Tests</div></div>
+    <div class="stat"><div class="num">${questionsSnap.size}</div><div class="label">Questions</div></div>
+    <div class="stat"><div class="num">${attemptsCount}</div><div class="label">Tests taken by users</div></div>
+    <div class="stat"><div class="num">${users.filter(u=>!u.isAdmin).length}</div><div class="label">Registered users</div></div>
+    <div class="stat clickable" data-action="go" data-hash="#/admin/sections"><div class="num" style="color:var(--teal);">→</div><div class="label">Manage sections</div></div>
+  </div>`;
+}
+
+async function renderAdminSections(){
+  const sections = await Data.getSections();
+  return `
+  <h1 class="page-title">Manage Sections</h1>
+  <p class="page-sub">Sections group tests together for your users.</p>
+  <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-section">${ICON.plus} Add Section</button>
+  ${sections.length===0 ? emptyBlock('No sections yet — add your first one.') :
+    sections.map(s=>`
+      <div class="card">
+        <div class="row-between">
+          <div class="clickable" style="flex:1;font-weight:700;font-size:15.5px;" data-action="go" data-hash="#/admin/sections/${s.id}/tests">${esc(s.name)}</div>
+          <div style="display:flex;gap:6px;">
+            <button class="icon-btn" data-action="edit-section" data-id="${s.id}" data-name="${esc(s.name)}">${ICON.edit}</button>
+            <button class="icon-btn" data-action="delete-section" data-id="${s.id}" data-name="${esc(s.name)}">${ICON.trash}</button>
+          </div>
+        </div>
+      </div>`).join('')}`;
+}
+
+async function renderAdminSectionTests(sectionId){
+  const [sec, tests] = await Promise.all([ Data.getSection(sectionId), Data.getTests(sectionId) ]);
+  if(!sec) return emptyBlock('Section not found.');
+  return `
+  <h1 class="page-title">${esc(sec.name)}</h1>
+  <p class="page-sub">Tests inside this section.</p>
+  <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-test" data-section-id="${sectionId}">${ICON.plus} Add Test</button>
+  ${tests.length===0 ? emptyBlock('No tests yet — add your first one.') :
+    tests.map(t=>`
+      <div class="card">
+        <div class="row-between">
+          <div class="clickable" style="flex:1;font-weight:700;font-size:15px;" data-action="go" data-hash="#/admin/sections/${sectionId}/tests/${t.id}">${esc(t.title)}</div>
+          <div style="display:flex;gap:6px;">
+            <button class="icon-btn" data-action="edit-test-title" data-id="${t.id}" data-section-id="${sectionId}" data-title="${esc(t.title)}">${ICON.edit}</button>
+            <button class="icon-btn" data-action="delete-test" data-id="${t.id}" data-section-id="${sectionId}" data-title="${esc(t.title)}">${ICON.trash}</button>
+          </div>
+        </div>
+      </div>`).join('')}`;
+}
+
+async function renderAdminTestEdit(sectionId, testId){
+  const [test, questions] = await Promise.all([ Data.getTest(testId), Data.getQuestions(testId) ]);
+  if(!test) return emptyBlock('Test not found.');
+  return `
+  <h1 class="page-title">${esc(test.title)} <button class="icon-btn" style="vertical-align:middle;" data-action="edit-test-title" data-id="${testId}" data-section-id="${sectionId}" data-title="${esc(test.title)}">${ICON.edit}</button></h1>
+  <p class="page-sub">${questions.length} question(s) in this test.</p>
+  <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-question" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.plus} Add Question</button>
+  ${questions.length===0 ? emptyBlock('No questions yet.') :
+    questions.map((q,i)=>`
+      <div class="card">
+        <div class="row-between" style="align-items:flex-start;">
+          <div style="font-weight:600;font-size:14.5px;flex:1;">Q${i+1}. ${esc(q.text)}</div>
+          <div style="display:flex;gap:6px;">
+            <button class="icon-btn" data-action="edit-question" data-id="${q.id}" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.edit}</button>
+            <button class="icon-btn" data-action="delete-question" data-id="${q.id}" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.trash}</button>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          ${q.options.map((opt,oi)=>`<div class="option ${oi===q.correctIndex?'correct':''}" style="margin-bottom:6px;padding:8px 12px;"><span class="letter">${letterOf(oi)}</span><span style="font-size:13.5px;">${esc(opt)}</span></div>`).join('')}
+        </div>
+      </div>`).join('')}`;
+}
+
+async function renderAdminUsers(){
+  const users = (await Data.getAllUsers()).filter(u=>!u.isAdmin);
+  return `
+  <h1 class="page-title">Manage Users</h1>
+  <p class="page-sub">Everyone who has signed in to STEP.</p>
+  ${users.length===0 ? emptyBlock('No users have signed up yet.') : `
+  <table class="simple">
+    <thead><tr><th>Number</th><th>Name</th><th>Joined</th></tr></thead>
+    <tbody>
+      ${users.map(u=>`<tr><td class="mono">#${esc(u.number)}</td><td>${esc(u.name)}</td><td class="muted">${fmtDateTime(u.createdAt)}</td></tr>`).join('')}
+    </tbody>
+  </table>`}`;
+}
+
+/* ============ MISC ACTIONS ============ */
+async function deleteRefAction(kind, qid){
+  if(kind==='wrong') await Data.removeWrong(state.user.id, qid);
+  else await Data.removeSaved(state.user.id, qid);
+  render();
+}
+function doLogout(){
+  state.user = null; state.quiz = null; state.menuOpen = false; state.modal = null; state.pendingNumber = null;
+  navigate('#/login');
+}
+
+/* ============ ADMIN MODAL OPENERS ============ */
+function openAddSectionModal(){
+  setModal({ type:'textInput', title:'Add Section', label:'Section name', placeholder:'e.g. Cardiology', confirmLabel:'Add', purpose:'addSection' });
+}
+function openEditSectionModal(id, name){
+  setModal({ type:'textInput', title:'Rename Section', label:'Section name', value:name, confirmLabel:'Save', purpose:'editSection', id });
+}
+function openDeleteSectionConfirm(id, name){
+  setModal({ type:'confirm', title:'Delete Section', message:`Delete "${name}" and all its tests & questions? This can't be undone.`, confirmLabel:'Delete', purpose:'deleteSection', id });
+}
+function openAddTestChoiceModal(sectionId){
+  setModal({ type:'choice', title:'Add Test', options:[{label:'Manual Entry',value:'manual'},{label:'Quick Add (paste text)',value:'quick'}], purpose:'addTestChoice', sectionId });
+}
+function openEditTestTitleModal(id, sectionId, title){
+  setModal({ type:'textInput', title:'Rename Test', label:'Test title', value:title, confirmLabel:'Save', purpose:'editTestTitle', id, sectionId });
+}
+function openDeleteTestConfirm(id, sectionId, title){
+  setModal({ type:'confirm', title:'Delete Test', message:`Delete "${title}" and all its questions? This can't be undone.`, confirmLabel:'Delete', purpose:'deleteTest', id, sectionId });
+}
+function openQuestionModal(testId, sectionId){
+  setModal({ type:'question', question:null, editId:null, testId, sectionId });
+}
+async function openEditQuestionModal(id, testId, sectionId){
+  const snap = await getDoc(doc(questionsCol,id));
+  if(!snap.exists()) return;
+  setModal({ type:'question', question:{id:snap.id,...snap.data()}, editId:id, testId, sectionId });
+}
+function openDeleteQuestionConfirm(id, testId, sectionId){
+  setModal({ type:'confirm', title:'Delete Question', message:'Delete this question permanently?', confirmLabel:'Delete', purpose:'deleteQuestion', id, testId, sectionId });
+}
+
+/* ============ MODAL SUBMIT HANDLERS ============ */
+async function handleModalConfirm(){
+  const m = state.modal;
+  if(!m) return;
+  if(m.type==='textInput'){
+    const input = document.getElementById('modal-input-val');
+    const val = input ? input.value.trim() : '';
+    if(!val) return;
+    if(m.purpose==='addSection'){ await Data.addSection(val); }
+    else if(m.purpose==='editSection'){ await Data.updateSection(m.id, val); }
+    else if(m.purpose==='editTestTitle'){ await Data.updateTestTitle(m.id, val); }
+    else if(m.purpose==='createTestManual'){
+      const testId = await Data.addTest(m.sectionId, val);
+      state.modal = null;
+      navigate(`#/admin/sections/${m.sectionId}/tests/${testId}`);
+      return;
+    }
+  } else if(m.type==='confirm'){
+    if(m.purpose==='deleteSection') await Data.deleteSection(m.id);
+    else if(m.purpose==='deleteTest') await Data.deleteTest(m.id);
+    else if(m.purpose==='deleteQuestion') await Data.deleteQuestion(m.id);
+  }
+  state.modal = null;
+  render();
+}
+async function handleModalChoice(value){
+  const m = state.modal;
+  if(m.purpose==='addTestChoice'){
+    if(value==='manual'){
+      setModal({ type:'textInput', title:'New Test', label:'Test title', placeholder:'e.g. Test 1', confirmLabel:'Create', purpose:'createTestManual', sectionId:m.sectionId });
+    } else {
+      setModal({ type:'quickAdd', purpose:'createTestQuick', sectionId:m.sectionId });
+    }
+  }
+}
+async function handleQuickAddSubmit(){
+  const m = state.modal;
+  const ta = document.getElementById('modal-quickadd');
+  const parsed = parseQuickAdd(ta ? ta.value : '');
+  if(!parsed.questions.length){ alert('No questions detected. Check the format and try again.'); return; }
+  const title = parsed.title || 'Untitled Test';
+  const testId = await Data.addTest(m.sectionId, title);
+  for(const q of parsed.questions){
+    if(q.correctIndex < 0 || q.options.length < 2) continue;
+    await Data.addQuestion(testId, m.sectionId, q);
+  }
+  state.modal = null;
+  navigate(`#/admin/sections/${m.sectionId}/tests/${testId}`);
+}
+async function handleQuestionSubmit(editId){
+  const m = state.modal;
+  const text = document.getElementById('qm-text').value.trim();
+  const options = [0,1,2,3].map(i => document.getElementById('qm-opt-'+i).value.trim());
+  const radio = document.querySelector('input[name="qm-correct"]:checked');
+  if(!text || options.some(o=>!o) || !radio){
+    alert('Please fill in the question, all 4 options, and select the correct answer.');
+    return;
+  }
+  const correctIndex = parseInt(radio.value, 10);
+  if(editId){
+    await Data.updateQuestion(editId, { text, options, correctIndex });
+  } else {
+    await Data.addQuestion(m.testId, m.sectionId, { text, options, correctIndex });
+  }
+  state.modal = null;
+  render();
+}
+
+/* ============ GLOBAL EVENT BINDING (once) ============ */
+async function onAppClick(e){
+  const t = e.target.closest('[data-action]');
+  if(!t) return;
+  e.preventDefault();
+  const action = t.dataset.action;
+  switch(action){
+    case 'go': navigate(t.dataset.hash); break;
+    case 'back': goBack(); break;
+    case 'logout': doLogout(); break;
+    case 'open-menu': state.menuOpen = true; render(); break;
+    case 'close-menu': state.menuOpen = false; render(); break;
+    case 'modal-backdrop': closeModal(); break;
+    case 'modal-cancel': closeModal(); break;
+
+    case 'delete-ref': await deleteRefAction(t.dataset.kind, t.dataset.qid); break;
+    case 'review-list': await startReviewListAction(t.dataset.source); break;
+
+    case 'start-quiz': await startQuizAction(t.dataset.scope, t.dataset.sectionId, t.dataset.testId); break;
+    case 'select-option': selectOption(parseInt(t.dataset.index,10)); break;
+    case 'toggle-save': await toggleSave(); break;
+    case 'toggle-review': toggleReview(); break;
+    case 'goto-question': gotoQuestion(parseInt(t.dataset.index,10)); break;
+    case 'quiz-next': quizNext(); break;
+    case 'quiz-prev': quizPrev(); break;
+    case 'quiz-submit': quizSubmitClicked(); break;
+    case 'quiz-submit-final': await finalizeQuiz(); break;
+    case 'review-jump': { state.modal = null; gotoQuestion(parseInt(t.dataset.index,10)); break; }
+
+    case 'add-section': openAddSectionModal(); break;
+    case 'edit-section': openEditSectionModal(t.dataset.id, t.dataset.name); break;
+    case 'delete-section': openDeleteSectionConfirm(t.dataset.id, t.dataset.name); break;
+    case 'add-test': openAddTestChoiceModal(t.dataset.sectionId); break;
+    case 'edit-test-title': openEditTestTitleModal(t.dataset.id, t.dataset.sectionId, t.dataset.title); break;
+    case 'delete-test': openDeleteTestConfirm(t.dataset.id, t.dataset.sectionId, t.dataset.title); break;
+    case 'add-question': openQuestionModal(t.dataset.testId, t.dataset.sectionId); break;
+    case 'edit-question': await openEditQuestionModal(t.dataset.id, t.dataset.testId, t.dataset.sectionId); break;
+    case 'delete-question': openDeleteQuestionConfirm(t.dataset.id, t.dataset.testId, t.dataset.sectionId); break;
+
+    case 'modal-confirm': await handleModalConfirm(); break;
+    case 'modal-choice': await handleModalChoice(t.dataset.value); break;
+    case 'modal-quickadd-submit': await handleQuickAddSubmit(); break;
+    case 'modal-question-submit': await handleQuestionSubmit(t.dataset.editId || null); break;
+  }
+}
+async function onAppSubmit(e){
+  if(e.target.id === 'login-form'){
+    e.preventDefault();
+    const raw = document.getElementById('login-number').value.trim();
+    if(!raw) return;
+    const number = raw.replace(/\s+/g,'');
+    if(number === ADMIN_NUMBER){
+      let u = await Data.getUser(ADMIN_NUMBER);
+      if(!u) u = await Data.createUser(ADMIN_NUMBER, 'Admin', true);
+      state.user = u;
+      navigate('#/admin/home');
+    } else {
+      let u = await Data.getUser(number);
+      if(u){ state.user = u; navigate('#/user/home'); }
+      else { state.pendingNumber = number; navigate('#/name'); }
+    }
+  } else if(e.target.id === 'name-form'){
+    e.preventDefault();
+    const name = document.getElementById('name-input').value.trim();
+    if(!name) return;
+    const u = await Data.createUser(state.pendingNumber, name, false);
+    state.user = u; state.pendingNumber = null;
+    navigate('#/user/home');
+  }
+}
+
+app.addEventListener('click', onAppClick);
+app.addEventListener('submit', onAppSubmit);
+window.addEventListener('hashchange', render);
+if(!location.hash) location.hash = '#/login';
+render();
+</script>
+</body>
+</html>
