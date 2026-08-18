@@ -329,7 +329,8 @@ function sortByCreatedAt(arr, dir='asc'){
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function letterOf(i){ return ['A','B','C','D'][i]; }
 
-function parseQuickAdd(raw){
+function parseQuickAddLettered(raw){
+  // Format: "Q: text" then separate lines "A) opt" "B) opt" "C) opt" "D) opt", correct marked with trailing *
   const lines = raw.split('\n');
   let title = '';
   const questions = [];
@@ -337,11 +338,11 @@ function parseQuickAdd(raw){
   for(let line of lines){
     line = line.trim();
     if(!line) continue;
-    if(/^title:/i.test(line)){
-      title = line.replace(/^title:/i,'').trim();
-    } else if(/^q:/i.test(line)){
+    if(/^(title|عنوان الاختبار|عنوان)\s*:/i.test(line)){
+      title = line.replace(/^(title|عنوان الاختبار|عنوان)\s*:/i,'').trim();
+    } else if(/^q\s*\d*:/i.test(line)){
       if(current && current.text && current.options.length>=2) questions.push(current);
-      current = { text: line.replace(/^q:/i,'').trim(), options: [], correctIndex: -1 };
+      current = { text: line.replace(/^q\s*\d*:/i,'').trim(), options: [], correctIndex: -1 };
     } else if(/^[a-dA-D]\)/.test(line)){
       if(!current) continue;
       let opt = line.replace(/^[a-dA-D]\)/,'').trim();
@@ -353,6 +354,44 @@ function parseQuickAdd(raw){
   }
   if(current && current.text && current.options.length>=2) questions.push(current);
   return { title, questions };
+}
+function parseQuickAddInline(raw){
+  // Format: "Q1: question text? A: opt1. B: opt2. C: opt3. D: opt4*" (may span 2 lines: a context
+  // line with no options, then the actual question+options on the next line). Correct option is
+  // whichever one ends with "*", not necessarily D.
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  let title = '';
+  let i = 0;
+  if(lines.length && /^(title|عنوان الاختبار|عنوان)\s*:/i.test(lines[0]) && !/\bA:/.test(lines[0])){
+    title = lines[0].replace(/^(title|عنوان الاختبار|عنوان)\s*:/i,'').trim();
+    i = 1;
+  }
+  const questions = [];
+  let buffer = '';
+  for(; i<lines.length; i++){
+    const line = lines[i];
+    const qMatch = line.match(/^Q\s*\d+\s*:\s*(.*)$/i);
+    buffer = qMatch ? qMatch[1] : (buffer ? (buffer + ' ' + line) : line);
+    const optMatch = buffer.match(/\bA:\s*(.*?)\s*(?=\bB:)\bB:\s*(.*?)\s*(?=\bC:)\bC:\s*(.*?)\s*(?=\bD:)\bD:\s*(.*)$/s);
+    if(optMatch){
+      const stem = buffer.slice(0, buffer.indexOf(optMatch[0])).trim();
+      let correctIndex = -1;
+      const options = [optMatch[1], optMatch[2], optMatch[3], optMatch[4]].map((o,idx)=>{
+        let clean = o.trim();
+        if(/\*\s*$/.test(clean)){ correctIndex = idx; clean = clean.replace(/\*\s*$/,'').trim(); }
+        clean = clean.replace(/\.\s*$/,'').trim();
+        return clean;
+      });
+      if(stem && options.every(o=>o)) questions.push({ text: stem, options, correctIndex });
+      buffer = '';
+    }
+  }
+  return { title, questions };
+}
+function parseQuickAdd(raw){
+  const lettered = parseQuickAddLettered(raw);
+  if(lettered.questions.length) return lettered;
+  return parseQuickAddInline(raw);
 }
 
 /* ============ DATA LAYER ============ */
@@ -594,18 +633,19 @@ function renderModal(){
     body = `
       <h3>Quick Add — Paste Questions</h3>
       <p class="muted" style="font-size:13px;line-height:1.6;">
-        Start with <code>Title: ...</code>, then each question as <code>Q: ...</code> followed by
-        <code>A) B) C) D)</code> options. Mark the correct option with <code>*</code> right after it.
+        First line is the title (<code>Title: ...</code> or <code>عنوان الاختبار: ...</code>). Then each
+        question as <code>Q1: text? A: opt. B: opt. C: opt. D: opt</code> — put <code>*</code> right after
+        the correct option (any of A–D). A question can span two lines: a context line, then the line with
+        the question and options.
       </p>
       <div class="field">
-        <textarea id="modal-quickadd" rows="14" placeholder="Title: Cardiology Quiz 1
+        <textarea id="modal-quickadd" rows="14" placeholder="Title: Model 1
 
-Q: What is the most common cause of nephrotic syndrome in children?
-A) IgA nephropathy
-B) Minimal change disease*
-C) Membranous nephropathy
-D) FSGS">${esc(m.value||'')}</textarea>
+Q1: Why is it too late to record the language? A: It is new. B: Few speak it. C: It is banned. D: It is spoken mainly by elders*
+Q2: قطعة عن طالب اشترى له والده سيارة جديدة.
+Why did the father buy the car? A: To go to work. B: To sell it later. C: Because it was cheap. D: Because he passed his exams*">${esc(m.value||'')}</textarea>
       </div>
+      <p class="faint" style="font-size:12px;">The older <code>A) B) C) D)</code> per-line format (with the title on its own <code>Title:</code> line and each option on its own line) also still works.</p>
       <div class="modal-actions">
         <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
         <button class="btn btn-primary" data-action="modal-quickadd-submit">Parse & Add</button>
