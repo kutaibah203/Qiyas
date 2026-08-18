@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>قدرات</title>
+  
+  <!-- Google Fonts: Cairo -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- KaTeX CSS & JS for beautiful mathematical notations -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            cairo: ['Cairo', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-300 flex flex-col">
+
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3 space-x-reverse">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 animate-pulse">
+          <i class="fa-solid fa-calculator text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight" id="mainAppTitle">قدرات</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block">مراجعة أهم التحويلات والعمليات في القدرات.</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-2 space-x-reverse">
+        <!-- Theme Toggle Button -->
+        <button id="themeToggleBtn" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all duration-300 focus:outline-none" title="تغيير المظهر">
+          <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+          <i class="fa-solid fa-sun hidden dark:block text-lg"></i>
+        </button>
+        
+        <!-- Reset Progress Button -->
+        <button id="resetAppBtn" class="px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-bold text-xs sm:text-sm transition-all duration-300 flex items-center space-x-1.5 space-x-reverse focus:outline-none border border-rose-200 dark:border-rose-900/50" title="إعادة تصفير كل الإجابات والتقدم">
+          <i class="fa-solid fa-arrow-rotate-left"></i>
+          <span>إعادة ضبط البيانات</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Left Sidebar (Stats & Navigation Panels) -->
+      <div class="lg:col-span-1 flex flex-col space-y-6">
+        
+        <!-- Progress Tracking Card -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
+          <h2 class="text-base font-bold mb-4 flex items-center space-x-2 space-x-reverse text-slate-900 dark:text-white">
+            <i class="fa-solid fa-chart-line text-emerald-500"></i>
+            <span>مؤشرات الأداء الحالي</span>
+          </h2>
+          
+          <!-- Circular Progress representation in simplified dashboard-style -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex flex-col">
+              <span class="text-3xl font-extrabold text-emerald-500" id="progressPercent">٠%</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">نسبة الإنجاز الإجمالية</span>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <i class="fa-solid fa-trophy text-xl"></i>
+            </div>
+          </div>
+          
+          <!-- Linear Progress Bar -->
+          <div class="space-y-1.5 mb-5">
+            <div class="flex justify-between text-xs font-semibold">
+              <span id="progressBarLabel">تمت الإجابة على ٠ من ٠</span>
+              <span class="text-slate-400" id="progressBarPercent">٠%</span>
+            </div>
+            <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
+              <div id="progressFill" class="bg-emerald-500 h-full rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+            </div>
+          </div>
+          
+          <!-- Quick Counter Boxes -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-3 text-center transition-colors">
+              <span class="block text-2xl font-extrabold text-emerald-600 dark:text-emerald-400" id="correctCounter">٠</span>
+              <span class="text-xs font-bold text-emerald-700/80 dark:text-emerald-500">إجابة صحيحة</span>
+            </div>
+            <div class="bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded-xl p-3 text-center transition-colors">
+              <span class="block text-2xl font-extrabold text-rose-600 dark:text-rose-400" id="wrongCounter">٠</span>
+              <span class="text-xs font-bold text-rose-700/80 dark:text-rose-500">إجابة خاطئة</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Filters & Controls Card -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
+          <h2 class="text-base font-bold mb-4 flex items-center space-x-2 space-x-reverse text-slate-900 dark:text-white">
+            <i class="fa-solid fa-sliders text-emerald-500"></i>
+            <span>تخصيص المراجعة</span>
+          </h2>
+          
+          <!-- Order Mode Selection -->
+          <div class="mb-4">
+            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ترتيب الأسئلة</label>
+            <div class="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
+              <button id="seqModeBtn" class="py-2 text-xs font-bold rounded-lg transition-all duration-200 focus:outline-none bg-white dark:bg-slate-600 text-slate-800 dark:text-white shadow-sm">
+                متسلسل
+              </button>
+              <button id="randModeBtn" class="py-2 text-xs font-bold rounded-lg transition-all duration-200 focus:outline-none text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white">
+                عشوائي بالكامل
+              </button>
+            </div>
+          </div>
+          
+          <!-- Category Filter Selection -->
+          <div>
+            <label for="categoryFilter" class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">القسم الحسابي</label>
+            <div class="relative">
+              <select id="categoryFilter" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-white rounded-xl px-3.5 py-2.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 appearance-none cursor-pointer transition-all">
+                <option value="all">جميع الأسئلة والأقسام</option>
+                <option value="bookmarked">⭐ الأسئلة المفضلة المحددة</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-slate-400">
+                <i class="fa-solid fa-chevron-down text-xs"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Right Playground (The Quiz Card) -->
+      <div class="lg:col-span-2 flex flex-col space-y-6">
+        
+        <!-- Completed Active Pool State View / Empty state -->
+        <div id="completedView" class="hidden bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-200 dark:border-slate-700 shadow-lg text-center transition-colors duration-300">
+          <div class="w-20 h-20 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-500 mb-6" id="completedViewIcon">
+            <i class="fa-solid fa-award text-4xl"></i>
+          </div>
+          <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white mb-2" id="completedTitle">تهانينا! لقد أكملت القسم الحالي</h2>
+          <p class="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto mb-6 leading-relaxed" id="completedMsg">
+            لقد تمكنت من الإجابة على جميع الأسئلة المتوفرة في هذا التصنيف بنجاح. يمكنك إعادة المحاولة أو الانتقال إلى فصول أخرى.
+          </p>
+          <div class="flex flex-col sm:flex-row justify-center items-center gap-3">
+            <button id="restartSectionBtn" class="w-full sm:w-auto px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 space-x-reverse focus:outline-none shadow-md shadow-emerald-500/20">
+              <i class="fa-solid fa-rotate-right"></i>
+              <span>إعادة تشغيل القسم</span>
+            </button>
+            <button id="backToAllBtn" class="w-full sm:w-auto px-6 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold rounded-xl transition-all duration-300 focus:outline-none">
+              <span>عرض جميع الأسئلة</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Main Quiz Card -->
+        <div id="quizCard" class="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300 min-h-[480px] flex flex-col justify-between hidden">
+          
+          <!-- Card Header Info -->
+          <div>
+            <div class="flex items-center justify-between mb-6">
+              <div class="flex items-center space-x-2 space-x-reverse">
+                <span class="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full" id="questionCategory">
+                  جاري التحميل...
+                </span>
+                <span class="text-slate-400 dark:text-slate-500 text-xs font-semibold" id="questionNumber">
+                  السؤال ٠ / ٠
+                </span>
+              </div>
+              
+              <!-- Bookmark Button -->
+              <button id="bookmarkBtn" class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-400 dark:text-slate-400 hover:text-amber-500 transition-all focus:outline-none flex items-center justify-center border border-slate-100 dark:border-slate-600/50" title="أضف للمفضلة المرجعية">
+                <i class="fa-regular fa-bookmark text-base"></i>
+              </button>
+            </div>
+            
+            <!-- Question Box -->
+            <div class="mb-6">
+              <div class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-relaxed text-right" id="questionText">
+                جاري تحميل محتوى السؤال المختار...
+              </div>
+            </div>
+            
+            <!-- Options Layout -->
+            <div class="space-y-3" id="optionsContainer">
+              <!-- Options loaded dynamically -->
+            </div>
+          </div>
+          
+          <!-- Explanation / Hint Panel & Footer Navigation -->
+          <div class="mt-8 space-y-6">
+            
+            <!-- Explanation & Rationale Panel (Hidden by default) -->
+            <div id="explanationPanel" class="hidden transition-all duration-300 rounded-2xl p-5 border">
+              <div class="flex items-start space-x-3 space-x-reverse">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center mt-0.5" id="explanationIconContainer">
+                  <!-- Dynamic icon based on correctness -->
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-sm font-extrabold mb-1" id="explanationTitle">التحليل التفصيلي للسؤال</h3>
+                  <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium" id="explanationText">
+                    هذا الحقل مخصص للشرح والتفسير الإرشادي للخيارات.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Footer Navigation -->
+            <div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700/60">
+              <!-- Hint Button -->
+              <button id="hintBtn" class="px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/20 dark:hover:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-extrabold text-xs transition-all duration-300 flex items-center space-x-1.5 space-x-reverse focus:outline-none border border-amber-200/50 dark:border-amber-900/30">
+                <i class="fa-regular fa-lightbulb"></i>
+                <span>عرض تلميح مساعد</span>
+              </button>
+              
+              <!-- Next Question Button -->
+              <button id="nextBtn" class="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 font-extrabold text-sm transition-all duration-300 flex items-center space-x-2 space-x-reverse focus:outline-none disabled:cursor-not-allowed" disabled>
+                <span>السؤال التالي</span>
+                <i class="fa-solid fa-arrow-left"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </main>
+
+  <!-- Global Footer -->
+  <footer class="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-6 mt-12 transition-colors duration-300">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+      <p class="text-xs text-slate-400 dark:text-slate-500 font-semibold">منصة مراجعة تفاعلية حديثة وسريعة الاستجابة لجدول الضرب والعمليات الحسابية وقابلية القسمة.</p>
+    </div>
+  </footer>
+
+  <!-- Custom Reset Modal Overlay -->
+  <div id="resetModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 dark:border-slate-700 transform scale-95 transition-transform duration-300">
+      <div class="text-center">
+        <div class="w-14 h-14 bg-rose-100 dark:bg-rose-950/30 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-extrabold text-slate-900 dark:text-white mb-2">هل أنت متأكد من إعادة الضبط؟</h3>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+          سيؤدي هذا الإجراء إلى حذف جميع سجلات التقدم الحالي، الإجابات المحفوظة، والأسئلة المفضلة بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.
+        </p>
+        <div class="flex items-center space-x-3 space-x-reverse">
+          <button id="confirmResetBtn" class="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl transition-all shadow-md shadow-rose-500/10">
+            نعم، احذف البيانات
+          </button>
+          <button id="cancelResetBtn" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-all">
+            تراجع
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification System Container -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 left-6 sm:left-auto z-50 flex flex-col space-y-3 pointer-events-none"></div>
+
+  <!-- Sound Effects / Buzzers (Simulated with Web Audio API) -->
+  <script>
+    const soundManager = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      },
+      play(correct) {
+        try {
+          this.init();
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          
+          if (correct) {
+            osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+            osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.1); // E5
+            gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.4);
+          } else {
+            osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.3);
+          }
+        } catch (e) {
+          // Silent catch if audio is blocked or unsupported
+        }
+      }
+    };
+  </script>
+
+  <!-- Complete Database Array Initialization -->
+  <script>
+    // Eastern Arabic numerals mapping helper
+    const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    function toArabicNumerals(num) {
+      if (num === null || num === undefined) return '';
+      return num.toString().replace(/\d/g, d => arabicDigits[d]);
+    }
+
+    // Static Divisibility and important multiplication questions with direct Eastern Arabic numerals representation
+    const STATIC_QUESTIONS = [
+      // ==== قابلية القسمة (من وحي ورقة المراجعة image_6dd4c7.jpg و image_6dd4e0.png) ====
+      {
+        id: "div_1",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ٣",
+        question: "كيف تحدد قابلية القسمة على ٣ ؟",
+        options: [
+          "أ) إذا كان آحاده الرقم ٣ أو ٦ أو ٩",
+          "ب) إذا كان مجموع أرقامه يقبل القسمة على ٣",
+          "ج) إذا كان العدد زوجياً ومجموع أرقامه يقبل القسمة على ٣",
+          "د) إذا كان آحاده وعشراته يقبل القسمة على ٣"
+        ],
+        answer: "ب) إذا كان مجموع أرقامه يقبل القسمة على ٣",
+        hint: "يقبل العدد القسمة على ٣ إذا كانت مجموع أرقامه تقبل القسمة على ٣ (كما هو موضح في صورة ورقة المراجعة image_6dd4c7.jpg)."
+      },
+      {
+        id: "div_2",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ٣",
+        question: "الرقم ٣٦٩٢١ يقبل القسمة على:",
+        options: [
+          "أ) ٤",
+          "ب) ٣",
+          "ج) ٥",
+          "د) ١٠"
+        ],
+        answer: "ب) ٣",
+        hint: "مجموع أرقام العدد ٣٦٩٢١ هو: ١ + ٢ + ٩ + ٦ + ٣ = ٢١، وبما أن ٢١ يقبل القسمة على ٣ فإنه يقبل القسمة عليه."
+      },
+      {
+        id: "div_3",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ٤",
+        question: "كيف تحدد قابلية القسمة على ٤ ؟",
+        options: [
+          "أ) إذا كان العدد المكون من آحاده وعشراته يقبل القسمة على ٤",
+          "ب) إذا كان مجموع أرقامه يقبل القسمة على ٤",
+          "ج) إذا كان آحاده الرقم ٤",
+          "د) إذا كان مجموع آحاده وعشراته يساوي ٤"
+        ],
+        answer: "أ) إذا كان العدد المكون من آحاده وعشراته يقبل القسمة على ٤",
+        hint: "يقبل العدد القسمة على ٤ إذا كان العدد المكون من آحاده وعشراته يقبل القسمة على ٤ (مثال ٧٥٣٢ من صورة ورقة المراجعة image_6dd4c7.jpg)."
+      },
+      {
+        id: "div_4",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ٤",
+        question: "الرقم ٧٥٣٢ يقبل القسمة على:",
+        options: [
+          "أ) ٤",
+          "ب) ٣",
+          "ج) ٥",
+          "د) ٩"
+        ],
+        answer: "أ) ٤",
+        hint: "لأن العدد المكون من آحاده وعشراته هو ٣٢ وهو يقبل القسمة على ٤ (من صورة ورقة المراجعة image_6dd4c7.jpg)."
+      },
+      {
+        id: "div_5",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ٥",
+        question: "كيف تحدد قابلية القسمة على ٥ ؟",
+        options: [
+          "أ) إذا كان آحاده الرقم ٥ فقط",
+          "ب) إذا كان آحاده صفراً أو ٥",
+          "ج) إذا كان مجموع أرقامه يقبل على ٥",
+          "د) إذا كان آحاده وعشراته يقبل على ٥"
+        ],
+        answer: "ب) إذا كان آحاده صفراً أو ٥",
+        hint: "يقبل العدد القسمة على ٥ إذا كان آحاده صفراً أو ٥ (من صورة ورقة المراجعة image_6dd4c7.jpg)."
+      },
+      {
+        id: "div_6",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ٦",
+        question: "كيف تحدد قابلية القسمة على ٦ ؟",
+        options: [
+          "أ) إذا كان يقبل القسمة على ٢ و٣ في نفس الوقت",
+          "ب) إذا كان آحاده الرقم ٦ فقط",
+          "ج) إذا كان مجموع أرقامه يساوي ٦",
+          "د) إذا كان زوجياً وآحاده يقبل على ٣"
+        ],
+        answer: "أ) إذا كان يقبل القسمة على ٢ و٣ في نفس الوقت",
+        hint: "يقبل العدد القسمة على ٦ إذا كان يقبل القسمة على ٢ و٣ في نفس الوقت (من صورة ورقة المراجعة image_6dd4c7.jpg)."
+      },
+      {
+        id: "div_7",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ٧",
+        question: "كيف تحدد قابلية القسمة على ٧ ؟",
+        options: [
+          "أ) إذا كان مجموع أرقامه يقبل القسمة على ٧",
+          "ب) إذا حقق الشرط: (العدد بدون آحاده) - (ضعف الآحاد) = عدد يقبل القسمة على ٧",
+          "ج) إذا كان آحاده يقبل على ٧",
+          "د) إذا كان ضعف مجموع أرقامه يقبل على ٧"
+        ],
+        answer: "ب) إذا حقق الشرط: (العدد بدون آحاده) - (ضعف الآحاد) = عدد يقبل القسمة على ٧",
+        hint: "يقبل العدد القسمة على ٧ إذا كان العدد بدون آحاده مطروحاً منه ضعف الآحاد يعطي عدداً يقبل على ٧ (من صورة ورقة المراجعة image_6dd4c7.jpg)."
+      },
+      {
+        id: "div_8",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ٧",
+        question: "الرقم ٣٨٥ يقبل القسمة على:",
+        options: [
+          "أ) ٤",
+          "ب) ٧",
+          "ج) ٩",
+          "د) ١١ فقط"
+        ],
+        answer: "ب) ٧",
+        hint: "العدد بدون آحاده هو ٣٨، وضعف الآحاد (٥ × ٢) هو ١٠. نطبق القاعدة: ٣٨ - ١٠ = ٢٨، وبما أن ٢٨ يقبل على ٧ فإنه يقبل القسمة على ٧ (من صورة ورقة المراجعة image_6dd4c7.jpg)."
+      },
+      {
+        id: "div_9",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ٩",
+        question: "كيف تحدد قابلية القسمة على ٩ ؟",
+        options: [
+          "أ) إذا كان آحاده يقبل على ٩",
+          "ب) إذا كان مجموع أرقامه يقبل القسمة على ٩",
+          "ج) إذا كان آحاده وعشراته يقبل على ٩",
+          "د) إذا كان العدد زوجياً ومجموع أرقامه يقبل على ٩"
+        ],
+        answer: "ب) إذا كان مجموع أرقامه يقبل القسمة على ٩",
+        hint: "يقبل العدد القسمة على ٩ إذا كان مجموع أرقامه يقبل القسمة على ٩ (من صورة ورقة المراجعة image_6dd4c7.jpg)."
+      },
+      {
+        id: "div_10",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ١١",
+        question: "كيف تحدد قابلية القسمة على ١١ ؟",
+        options: [
+          "أ) إذا كان مجموع أرقامه في الخانات الزوجية - مجموع أرقامه في الخانات الفردية هو صفر أو مضاعفات ١١",
+          "ب) إذا كان آحاده وعشراته يقبل على ١١",
+          "ج) إذا كان مجموع أرقامه يقبل على ١١",
+          "د) إذا كان آحاده الرقم ١"
+        ],
+        answer: "أ) إذا كان مجموع أرقامه في الخانات الزوجية - مجموع أرقامه في الخانات الفردية هو صفر أو مضاعفات ١١",
+        hint: "القاعدة من صورة ورقة المراجعة image_6dd4e0.png: مجموع الأرقام في الخانات الزوجية مطروحاً منه مجموع الأرقام في الخانات الفردية يساوي صفراً أو مضاعفات ١١."
+      },
+      {
+        id: "div_11",
+        type: "mcq",
+        category: "divisibility",
+        tag: "قابلية القسمة على ١١",
+        question: "الرقم ٤٣٥٦ يقبل القسمة على:",
+        options: [
+          "أ) ٣ فقط",
+          "ب) ٧",
+          "ج) ١١",
+          "د) ٥"
+        ],
+        answer: "ج) ١١",
+        hint: "لأن مجموع الخانات الزوجية (٤ + ٥ = ٩) ومجموع الخانات الفردية (٣ + ٦ = ٩)، والفرق بينهما ٩ - ٩ = ٠ (من صورة ورقة المراجعة image_6dd4e0.png)."
+      },
+
+      // ==== عمليات ضرب مهمة (من وحي ورقة المراجعة image_6de029.png) ====
+      {
+        id: "mult_static_1",
+        type: "mcq",
+        category: "important_mult",
+        tag: "عمليات ضرب مهمة",
+        question: "ما حاصل ضرب: ١٣ × ٧ ؟",
+        options: [
+          "أ) ١٠",
+          "ب) ٩",
+          "ج) ٩١",
+          "د) ٦٥"
+        ],
+        answer: "ج) ٩١",
+        hint: "١٣ × ٧ = ٩١ (من صورة ورقة المراجعة image_6de029.png)."
+      },
+      {
+        id: "mult_static_2",
+        type: "mcq",
+        category: "important_mult",
+        tag: "عمليات ضرب مهمة",
+        question: "ما حاصل قسمة: ١٠٠ ÷ ٥ ؟",
+        options: [
+          "أ) ٢٠",
+          "ب) ٣٠",
+          "ج) ١٥",
+          "د) ٢٥"
+        ],
+        answer: "أ) ٢٠",
+        hint: "بما أن ٥ × ٢٠ = ١٠٠ فإن ١٠٠ ÷ ٥ = ٢٠ (من صورة ورقة المراجعة image_6de029.png)."
+      },
+      {
+        id: "mult_static_3",
+        type: "mcq",
+        category: "important_mult",
+        tag: "عمليات ضرب مهمة",
+        question: "ما حاصل ضرب: ٤ × ٢٥ ؟",
+        options: [
+          "أ) ٧٥",
+          "ب) ٨٠",
+          "ج) ٩٠",
+          "د) ١٠٠"
+        ],
+        answer: "د) ١٠٠",
+        hint: "٤ × ٢٥ = ١٠٠ (من صورة ورقة المراجعة image_6de029.png)."
+      },
+      {
+        id: "mult_static_4",
+        type: "mcq",
+        category: "important_mult",
+        tag: "عمليات ضرب مهمة",
+        question: "ما حاصل ضرب: ٢٥ × ٥ ؟",
+        options: [
+          "أ) ١٠٠",
+          "ب) ١٢٥",
+          "ج) ١٥٠",
+          "د) ٢٢٥"
+        ],
+        answer: "ب) ١٢٥",
+        hint: "٢٥ × ٥ = ١٢٥ (من صورة ورقة المراجعة image_6de029.png)."
+      },
+      {
+        id: "mult_static_5",
+        type: "mcq",
+        category: "important_mult",
+        tag: "عمليات ضرب مهمة",
+        question: "ما حاصل ضرب: ٢٥ × ٢٥ ؟",
+        options: [
+          "أ) ٥٢٥",
+          "ب) ٦٢٥",
+          "ج) ٦٥٠",
+          "د) ٧٢٥"
+        ],
+        answer: "ب) ٦٢٥",
+        hint: "٢٥ × ٢٥ = ٦٢٥ (من صورة ورقة المراجعة image_6de029.png)."
+      },
+      {
+        id: "mult_static_6",
+        type: "mcq",
+        category: "important_mult",
+        tag: "عمليات ضرب مهمة",
+        question: "ما حاصل ضرب: ١٢٥ × ٥ ؟",
+        options: [
+          "أ) ٥٠٠",
+          "ب) ٦٠٠",
+          "ج) ٦٢٥",
+          "د) ٧٥٠"
+        ],
+        answer: "ج) ٦٢٥",
+        hint: "١٢٥ × ٥ = ٦٢٥ (من صورة ورقة المراجعة image_6de029.png)."
+      },
+      {
+        id: "mult_static_7",
+        type: "mcq",
+        category: "important_mult",
+        tag: "عمليات ضرب مهمة",
+        question: "ما حاصل ضرب: ٤٥ × ٥ ؟",
+        options: [
+          "أ) ٢٠٠",
+          "ب) ٢٢٥",
+          "ج) ٢٥٠",
+          "د) ٢٧٥"
+        ],
+        answer: "ب) ٢٢٥",
+        hint: "٤٥ × ٥ = ٢٢٥ (من صورة ورقة المراجعة image_6de029.png)."
+      },
+      {
+        id: "mult_static_8",
+        type: "mcq",
+        category: "important_mult",
+        tag: "عمليات ضرب مهمة",
+        question: "ما حاصل ضرب: ١٧ × ٣ ؟",
+        options: [
+          "أ) ٥١",
+          "ب) ٤٩",
+          "ج) ٦١",
+          "د) ٤١"
+        ],
+        answer: "أ) ٥١",
+        hint: "١٧ × ٣ = ٥١ (من صورة ورقة المراجعة image_6de029.png)."
+      },
+      {
+        id: "mult_static_9",
+        type: "mcq",
+        category: "important_mult",
+        tag: "عمليات ضرب مهمة",
+        question: "ما حاصل ضرب: ١٣ × ٥ ؟",
+        options: [
+          "أ) ٥٥",
+          "ب) ٦٠",
+          "ج) ٦٥",
+          "د) ٧٠"
+        ],
+        answer: "ج) ٦٥",
+        hint: "١٣ × ٥ = ٦٥ (من صورة ورقة المراجعة image_6de029.png)."
+      }
+    ];
+
+    // Generate multiplication tables from 1 to 15
+    const MULT_QUESTIONS = [];
+    for (let i = 1; i <= 15; i++) {
+      for (let j = 1; j <= 15; j++) {
+        const correctAnswerValue = i * j;
+        const qId = `table_${i}_${j}`;
+        
+        // Generate a set of unique wrong choices to make MCQ challenging
+        let wrongSet = new Set();
+        wrongSet.add(correctAnswerValue);
+        
+        // Add variations close to the real answer
+        wrongSet.add(correctAnswerValue + i);
+        if (correctAnswerValue - j > 0) wrongSet.add(correctAnswerValue - j);
+        wrongSet.add(correctAnswerValue + j);
+        
+        // Fill up to ensure exactly 4 unique options exist
+        let deviation = 1;
+        while (wrongSet.size < 4) {
+          wrongSet.add(correctAnswerValue + deviation);
+          if (correctAnswerValue - deviation > 0) {
+            wrongSet.add(correctAnswerValue - deviation);
+          }
+          deviation++;
+        }
+        
+        // Convert to array and sort numerically
+        const optionsSorted = Array.from(wrongSet).sort((a, b) => a - b);
+        
+        // Map elements to Arabic formatted string options
+        const arabicOptions = optionsSorted.map((opt, idx) => {
+          const label = ['أ', 'ب', 'ج', 'د'][idx];
+          return `${label}) ${toArabicNumerals(opt)}`;
+        });
+        
+        const correctArabicOptionString = arabicOptions[optionsSorted.indexOf(correctAnswerValue)];
+        
+        MULT_QUESTIONS.push({
+          id: qId,
+          type: "mcq",
+          category: "mult_table",
+          tag: `جدول ضرب العدد ${toArabicNumerals(i)}`,
+          question: `ما حاصل ضرب: ${toArabicNumerals(i)} × ${toArabicNumerals(j)} ؟`,
+          options: arabicOptions,
+          answer: correctArabicOptionString,
+          hint: `بناءً على جدول ضرب العدد ${toArabicNumerals(i)}: فإنَّ حاصل ضرب ${toArabicNumerals(i)} في ${toArabicNumerals(j)} يساوي ${toArabicNumerals(correctAnswerValue)}.`
+        });
+      }
+    }
+
+    // Merge static and dynamic lists inside the final variable
+    const ALL_QUESTIONS = [...STATIC_QUESTIONS, ...MULT_QUESTIONS];
+  </script>
+
+  <!-- Fully Fledged Pure Vanilla JS Application Controller Engine -->
+  <script>
+    // Local state for interactive matchmaking
+    let currentRenderedQuestionId = null;
+    let colASelected = false;
+
+    // Application State Management Object
+    const appState = {
+      currentIndex: 0,
+      correctCount: 0,
+      wrongCounter: 0,
+      activeCategory: "all", // Filter selector value
+      isRandomMode: false,
+      answeredMap: {}, // To track user answers per question ID
+      bookmarks: [], // Question IDs array
+      activePool: [], // Currently filtered questions array
+      
+      save() {
+        localStorage.setItem("ecology_quiz_progress_v2", JSON.stringify({
+          currentIndex: this.currentIndex,
+          correctCount: this.correctCount,
+          wrongCounter: this.wrongCounter,
+          activeCategory: this.activeCategory,
+          isRandomMode: this.isRandomMode,
+          answeredMap: this.answeredMap,
+          bookmarks: this.bookmarks
+        }));
+      },
+      
+      load() {
+        const data = localStorage.getItem("ecology_quiz_progress_v2");
+        if (data) {
+          try {
+            const parsed = JSON.parse(data);
+            this.currentIndex = parsed.currentIndex || 0;
+            this.correctCount = parsed.correctCount || 0;
+            this.wrongCounter = parsed.wrongCounter || 0;
+            this.activeCategory = parsed.activeCategory || "all";
+            this.isRandomMode = !!parsed.isRandomMode;
+            this.answeredMap = parsed.answeredMap || {};
+            this.bookmarks = parsed.bookmarks || [];
+          } catch (e) {
+            this.reset();
+          }
+        }
+      },
+      
+      reset() {
+        this.currentIndex = 0;
+        this.correctCount = 0;
+        this.wrongCounter = 0;
+        this.activeCategory = "all";
+        this.isRandomMode = false;
+        this.answeredMap = {};
+        this.bookmarks = [];
+        this.save();
+      }
+    };
+
+    // Formatter tool to handle RTL formatting correctly and prevent bidirectional letter reversing
+    function formatOptionHTML(opt) {
+      const prefixRegex = /^(\s*[\(\[]?[أبجدa-dA-D]{1,2}[\)\]\-\.\s]\s*)/;
+      const match = opt.match(prefixRegex);
+      
+      let prefix = "";
+      let mainText = opt;
+      
+      if (match) {
+        prefix = match[1];
+        mainText = opt.substring(prefix.length);
+      }
+      
+      // Determine direction of mainText: RTL if Arabic characters or Arabic numerals are present
+      const hasArabic = /[\u0600-\u06FF]/.test(mainText);
+      const isLtr = !hasArabic || mainText.includes("$");
+      const textDir = isLtr ? 'dir="ltr" class="inline-block text-left font-sans"' : 'dir="rtl" class="inline-block text-right"';
+      
+      const isPrefixEnglish = /^[a-zA-D\d]/.test(prefix.trim());
+      const prefixDir = isPrefixEnglish ? 'dir="ltr"' : 'dir="rtl"';
+      
+      return `<span ${prefixDir} class="font-bold text-slate-400 dark:text-slate-500 ml-2 select-none">${prefix}</span><span ${textDir}>${mainText}</span>`;
+    }
+
+    // UI Toast Notification Helper Engine
+    function showToast(message, type = 'info') {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      toast.className = "p-4 rounded-xl shadow-lg border text-xs sm:text-sm font-extrabold flex items-center space-x-2 space-x-reverse transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white";
+      
+      let icon = '<i class="fa-solid fa-info text-blue-500"></i>';
+      if (type === 'success') {
+        icon = '<i class="fa-solid fa-circle-check text-emerald-500"></i>';
+      } else if (type === 'warning') {
+        icon = '<i class="fa-solid fa-triangle-exclamation text-amber-500"></i>';
+      } else if (type === 'danger') {
+        icon = '<i class="fa-solid fa-circle-xmark text-rose-500"></i>';
+      }
+      
+      toast.innerHTML = `
+        <div class="flex-shrink-0">${icon}</div>
+        <div class="flex-1">${message}</div>
+      `;
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      }, 50);
+      
+      setTimeout(() => {
+        toast.classList.add("translate-y-2", "opacity-0");
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, 3000);
+    }
+
+    // Translate categories dynamically
+    function getCategoryName(val) {
+      switch (val) {
+        case "divisibility": return "قابلية القسمة";
+        case "important_mult": return "عمليات ضرب مهمة";
+        case "mult_table": return "جدول الضرب من ١ إلى ١٥";
+        default: return val;
+      }
+    }
+
+    // Populates category select filter list dynamically based on loaded questions
+    function populateCategoryFilter() {
+      const filterSelect = document.getElementById("categoryFilter");
+      filterSelect.innerHTML = `
+        <option value="all">جميع الأسئلة والأقسام</option>
+        <option value="bookmarked">⭐ الأسئلة المفضلة المحددة</option>
+      `;
+      
+      const uniqueCategories = [...new Set(ALL_QUESTIONS.map(q => q.category))].filter(Boolean);
+      
+      uniqueCategories.forEach(cat => {
+        const option = document.createElement("option");
+        option.value = cat;
+        option.textContent = getCategoryName(cat);
+        filterSelect.appendChild(option);
+      });
+    }
+
+    // Shuffle helper
+    function shuffleArray(array) {
+      const arrCopy = [...array];
+      for (let i = arrCopy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arrCopy[i], arrCopy[j]] = [arrCopy[j], arrCopy[i]];
+      }
+      return arrCopy;
+    }
+
+    // Build Active Pool of questions based on filters
+    function prepareActivePool() {
+      let filtered = [];
+      if (appState.activeCategory === "all") {
+        filtered = [...ALL_QUESTIONS];
+      } else if (appState.activeCategory === "bookmarked") {
+        filtered = ALL_QUESTIONS.filter(q => appState.bookmarks.includes(q.id));
+      } else {
+        filtered = ALL_QUESTIONS.filter(q => q.category === appState.activeCategory);
+      }
+      
+      if (appState.isRandomMode) {
+        appState.activePool = shuffleArray(filtered);
+      } else {
+        appState.activePool = filtered;
+      }
+      
+      if (appState.currentIndex >= appState.activePool.length) {
+        appState.currentIndex = 0;
+      }
+    }
+
+    // Primary UI Render loop
+    function renderApp() {
+      const totalInPool = appState.activePool.length;
+      
+      // Compute progress
+      let answeredCount = 0;
+      appState.activePool.forEach(q => {
+        if (appState.answeredMap[q.id] !== undefined) {
+          answeredCount++;
+        }
+      });
+      
+      const progressPercent = totalInPool > 0 ? Math.round((answeredCount / totalInPool) * 100) : 0;
+      
+      document.getElementById("progressPercent").innerText = toArabicNumerals(progressPercent) + "%";
+      document.getElementById("progressBarPercent").innerText = toArabicNumerals(progressPercent) + "%";
+      document.getElementById("progressBarLabel").innerText = `تمت الإجابة على ${toArabicNumerals(answeredCount)} من ${toArabicNumerals(totalInPool)}`;
+      document.getElementById("progressFill").style.width = progressPercent + "%";
+      
+      document.getElementById("correctCounter").innerText = toArabicNumerals(appState.correctCount);
+      document.getElementById("wrongCounter").innerText = toArabicNumerals(appState.wrongCounter);
+      
+      const quizCard = document.getElementById("quizCard");
+      const completedView = document.getElementById("completedView");
+
+      // Case A: Database is completely empty
+      if (ALL_QUESTIONS.length === 0) {
+        quizCard.classList.add("hidden");
+        completedView.classList.remove("hidden");
+        document.getElementById("completedViewIcon").innerHTML = '<i class="fa-solid fa-code text-amber-500 text-4xl"></i>';
+        document.getElementById("completedTitle").innerText = "جاهز وبانتظار أسئلتك مصفية وجاهزة!";
+        document.getElementById("completedMsg").innerHTML = `
+          يرجى فتح ملف الـ HTML وإضافة أسئلتك مباشرة داخل مصفوفة <code class="bg-slate-100 dark:bg-slate-700 px-2.5 py-1 rounded-lg text-rose-500 font-mono text-xs">ALL_QUESTIONS</code>.
+        `;
+        document.getElementById("restartSectionBtn").classList.add("hidden");
+        document.getElementById("backToAllBtn").classList.add("hidden");
+        return;
+      } else {
+        document.getElementById("completedViewIcon").innerHTML = '<i class="fa-solid fa-award text-4xl"></i>';
+        document.getElementById("completedTitle").innerText = "تهانينا! لقد أكملت القسم الحالي";
+        document.getElementById("restartSectionBtn").classList.remove("hidden");
+        document.getElementById("backToAllBtn").classList.remove("hidden");
+      }
+      
+      // Case B: Current active category is empty
+      if (totalInPool === 0) {
+        quizCard.classList.add("hidden");
+        completedView.classList.remove("hidden");
+        
+        if (appState.activeCategory === "bookmarked") {
+          document.getElementById("completedMsg").innerText = "لا يوجد أي أسئلة مضافة في قائمتك المفضلة المرجعية حالياً. تصفح الفصول وأضف بعض الأسئلة باستخدام أيقونة العلامة المرجعية.";
+          document.getElementById("restartSectionBtn").classList.add("hidden");
+        } else {
+          document.getElementById("completedMsg").innerText = "لم يتم العثور على أسئلة في الفئة المحددة حالياً.";
+          document.getElementById("restartSectionBtn").classList.add("hidden");
+        }
+        return;
+      }
+      
+      // Case C: Section finished
+      if (answeredCount === totalInPool && totalInPool > 0 && appState.currentIndex >= totalInPool) {
+        quizCard.classList.add("hidden");
+        completedView.classList.remove("hidden");
+        document.getElementById("completedMsg").innerText = "رائع جداً! لقد أكملت الإجابة على جميع الأسئلة المتوفرة في هذا القسم بنجاح تام.";
+        return;
+      } else {
+        quizCard.classList.remove("hidden");
+        completedView.classList.add("hidden");
+      }
+      
+      // Load current question safely
+      const q = appState.activePool[appState.currentIndex];
+      if (!q) {
+        appState.currentIndex = 0;
+        renderApp();
+        return;
+      }
+
+      // Safe state resetting on question transition
+      if (currentRenderedQuestionId !== q.id) {
+        currentRenderedQuestionId = q.id;
+        colASelected = false;
+      }
+      
+      // Set Header Tags
+      document.getElementById("questionCategory").innerText = getCategoryName(q.category);
+      document.getElementById("questionNumber").innerText = `السؤال ${toArabicNumerals(appState.currentIndex + 1)} / ${toArabicNumerals(totalInPool)}`;
+      
+      // Handle Bookmark State representation
+      const isBookmarked = appState.bookmarks.includes(q.id);
+      const bookmarkBtn = document.getElementById("bookmarkBtn");
+      if (isBookmarked) {
+        bookmarkBtn.innerHTML = '<i class="fa-solid fa-bookmark text-amber-500"></i>';
+        bookmarkBtn.title = "محذوف من المفضلة";
+      } else {
+        bookmarkBtn.innerHTML = '<i class="fa-regular fa-bookmark"></i>';
+        bookmarkBtn.title = "أضف للمفردات المفضلة المرجعية";
+      }
+      
+      const optionsContainer = document.getElementById("optionsContainer");
+      optionsContainer.innerHTML = "";
+      
+      const savedUserAnswer = appState.answeredMap[q.id];
+      const isAnswered = savedUserAnswer !== undefined;
+
+      // STANDARD MCQ AND TRUE/FALSE RENDERING
+      document.getElementById("questionText").innerHTML = q.question;
+      
+      q.options.forEach((opt) => {
+        const button = document.createElement("button");
+        button.className = "w-full text-right p-4 rounded-2xl border text-xs sm:text-sm font-extrabold flex items-center justify-between transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ";
+        
+        const textSpan = document.createElement("span");
+        textSpan.className = "leading-relaxed flex-grow pr-2";
+        
+        textSpan.innerHTML = formatOptionHTML(opt);
+        button.appendChild(textSpan);
+        
+        const iconContainer = document.createElement("div");
+        iconContainer.className = "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mr-2";
+        button.appendChild(iconContainer);
+        
+        button.className += " bg-slate-50 hover:bg-slate-100/80 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100";
+        
+        if (isAnswered) {
+          button.disabled = true;
+          
+          const isCorrectOption = opt === q.answer;
+          const isUserSelected = opt === savedUserAnswer;
+          
+          if (isCorrectOption) {
+            button.className = button.className.replace("bg-slate-50", "").replace("dark:bg-slate-800", "");
+            button.className += " border-emerald-500 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-black";
+            iconContainer.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-500 dark:text-emerald-400 text-base"></i>';
+          } else if (isUserSelected) {
+            button.className = button.className.replace("bg-slate-50", "").replace("dark:bg-slate-800", "");
+            button.className += " border-rose-500 dark:border-rose-400 bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300";
+            iconContainer.innerHTML = '<i class="fa-solid fa-circle-xmark text-rose-500 dark:text-rose-400 text-base"></i>';
+          } else {
+            button.className += " opacity-40";
+          }
+        } else {
+          button.addEventListener("click", () => {
+            handleAnswerSelection(opt, q, button);
+          });
+        }
+        
+        optionsContainer.appendChild(button);
+      });
+      
+      const explanationPanel = document.getElementById("explanationPanel");
+      const nextBtn = document.getElementById("nextBtn");
+      
+      if (isAnswered) {
+        explanationPanel.classList.remove("hidden");
+        nextBtn.removeAttribute("disabled");
+        nextBtn.className = nextBtn.className.replace("text-slate-400 dark:text-slate-500", "bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/20");
+        
+        const isUserCorrect = savedUserAnswer === q.answer;
+        const explanationIconContainer = document.getElementById("explanationIconContainer");
+        
+        document.getElementById("explanationText").innerText = q.hint;
+        
+        if (isUserCorrect) {
+          explanationPanel.className = "transition-all duration-300 rounded-2xl p-5 border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/10";
+          explanationIconContainer.className = "w-8 h-8 rounded-lg flex items-center justify-center mt-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-500";
+          explanationIconContainer.innerHTML = '<i class="fa-solid fa-check"></i>';
+          document.getElementById("explanationTitle").innerText = "أحسنت! إجابة صحيحة";
+          document.getElementById("explanationTitle").className = "text-sm font-extrabold mb-1 text-emerald-800 dark:text-emerald-400";
+        } else {
+          explanationPanel.className = "transition-all duration-300 rounded-2xl p-5 border border-rose-200 dark:border-rose-900/40 bg-rose-50/40 dark:bg-rose-950/10";
+          explanationIconContainer.className = "w-8 h-8 rounded-lg flex items-center justify-center mt-0.5 bg-rose-100 dark:bg-rose-950 text-rose-50";
+          explanationIconContainer.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+          document.getElementById("explanationTitle").innerText = "إجابة غير دقيقة! راجع التحليل";
+          document.getElementById("explanationTitle").className = "text-sm font-extrabold mb-1 text-rose-800 dark:text-rose-400";
+        }
+      } else {
+        explanationPanel.classList.add("hidden");
+        nextBtn.setAttribute("disabled", "true");
+        nextBtn.className = "px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 font-extrabold text-sm transition-all duration-300 flex items-center space-x-2 space-x-reverse focus:outline-none disabled:cursor-not-allowed";
+      }
+
+      if (window.renderMathInElement) {
+        renderMathInElement(document.getElementById("quizCard"), {
+          delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "$", right: "$", display: false}
+          ],
+          throwOnError: false
+        });
+      }
+    }
+
+    // Controller Answer selection state trigger
+    function handleAnswerSelection(selectedOption, question, element) {
+      if (appState.answeredMap[question.id] !== undefined) return;
+      
+      const isCorrect = selectedOption === question.answer;
+      appState.answeredMap[question.id] = selectedOption;
+      
+      if (isCorrect) {
+        appState.correctCount++;
+        soundManager.play(true);
+        showToast("إجابة صحيحة!", "success");
+      } else {
+        appState.wrongCounter++;
+        soundManager.play(false);
+        showToast(`إجابة غير صحيحة. الإجابة الصحيحة هي: ${question.answer}`, "danger");
+      }
+      
+      appState.save();
+      renderApp();
+    }
+
+    // Wire up all event listeners safely
+    function initializeEvents() {
+      // 1. Dark Mode Theme swapping
+      const themeToggleBtn = document.getElementById("themeToggleBtn");
+      
+      if (localStorage.getItem("ecology_dark_mode") === "true" || 
+          (!localStorage.getItem("ecology_dark_mode") && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      
+      themeToggleBtn.addEventListener("click", () => {
+        const isDark = document.documentElement.classList.toggle("dark");
+        localStorage.setItem("ecology_dark_mode", isDark);
+        showToast(isDark ? "تم تفعيل الوضع الداكن" : "تم تفعيل الوضع الفاتح", "info");
+      });
+      
+      // 2. Bookmark toggle button click
+      document.getElementById("bookmarkBtn").addEventListener("click", () => {
+        const q = appState.activePool[appState.currentIndex];
+        if (!q) return;
+        
+        const idx = appState.bookmarks.indexOf(q.id);
+        if (idx > -1) {
+          appState.bookmarks.splice(idx, 1);
+          showToast("تمت إزالة السؤال من المفضلة", "warning");
+        } else {
+          appState.bookmarks.push(q.id);
+          showToast("تمت إضافة السؤال للمفضلة ⭐", "success");
+        }
+        
+        appState.save();
+        renderApp();
+      });
+      
+      // 3. Sequential vs Random button toggles
+      const seqModeBtn = document.getElementById("seqModeBtn");
+      const randModeBtn = document.getElementById("randModeBtn");
+      
+      function updateModeButtons() {
+        if (appState.isRandomMode) {
+          randModeBtn.className = "py-2 text-xs font-bold rounded-lg transition-all duration-200 focus:outline-none bg-white dark:bg-slate-600 text-slate-800 dark:text-white shadow-sm";
+          seqModeBtn.className = "py-2 text-xs font-bold rounded-lg transition-all duration-200 focus:outline-none text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white";
+        } else {
+          seqModeBtn.className = "py-2 text-xs font-bold rounded-lg transition-all duration-200 focus:outline-none bg-white dark:bg-slate-600 text-slate-800 dark:text-white shadow-sm";
+          randModeBtn.className = "py-2 text-xs font-bold rounded-lg transition-all duration-200 focus:outline-none text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white";
+        }
+      }
+      
+      seqModeBtn.addEventListener("click", () => {
+        if (!appState.isRandomMode) return;
+        appState.isRandomMode = false;
+        updateModeButtons();
+        prepareActivePool();
+        renderApp();
+        showToast("تم تفعيل نمط الترتيب المتسلسل", "info");
+      });
+      
+      randModeBtn.addEventListener("click", () => {
+        if (appState.isRandomMode) return;
+        appState.isRandomMode = true;
+        updateModeButtons();
+        prepareActivePool();
+        renderApp();
+        showToast("تم تفعيل نمط الخلط العشوائي", "info");
+      });
+      
+      updateModeButtons();
+      
+      // 4. Dropdown category filters change event
+      const categoryFilter = document.getElementById("categoryFilter");
+      categoryFilter.value = appState.activeCategory;
+      
+      categoryFilter.addEventListener("change", (e) => {
+        const val = e.target.value;
+        
+        if (val === "bookmarked") {
+          const storedBookmarks = appState.bookmarks;
+          if (storedBookmarks.length === 0) {
+            showToast("قائمة المفضلة المرجعية فارغة حالياً!", "warning");
+            categoryFilter.value = appState.activeCategory;
+            return;
+          }
+        }
+        
+        appState.activeCategory = val;
+        appState.currentIndex = 0;
+        appState.save();
+        
+        prepareActivePool();
+        renderApp();
+        showToast(`تم تبديل القسم المعروض`, "success");
+      });
+      
+      // 5. Global Reset Progression modal logic
+      const resetAppBtn = document.getElementById("resetAppBtn");
+      const resetModal = document.getElementById("resetModal");
+      const cancelResetBtn = document.getElementById("cancelResetBtn");
+      const confirmResetBtn = document.getElementById("confirmResetBtn");
+      
+      resetAppBtn.addEventListener("click", () => {
+        resetModal.classList.remove("hidden");
+        setTimeout(() => {
+          resetModal.classList.remove("opacity-0");
+          resetModal.querySelector(".transform").classList.remove("scale-95");
+        }, 50);
+      });
+      
+      function hideResetModal() {
+        resetModal.classList.add("opacity-0");
+        resetModal.querySelector(".transform").classList.add("scale-95");
+        setTimeout(() => {
+          resetModal.classList.add("hidden");
+        }, 300);
+      }
+      
+      cancelResetBtn.addEventListener("click", hideResetModal);
+      
+      confirmResetBtn.addEventListener("click", () => {
+        appState.reset();
+        categoryFilter.value = "all";
+        updateModeButtons();
+        hideResetModal();
+        prepareActivePool();
+        renderApp();
+        showToast("تمت إعادة تعيين كافة البيانات بنجاح", "success");
+      });
+      
+      resetModal.addEventListener("click", (e) => {
+        if (e.target === resetModal) hideResetModal();
+      });
+      
+      // 6. Hint Trigger click
+      document.getElementById("hintBtn").addEventListener("click", () => {
+        const q = appState.activePool[appState.currentIndex];
+        if (!q) return;
+        showToast(`تلميح: ${q.hint}`, "warning");
+      });
+      
+      // 7. Next Question transition navigation
+      document.getElementById("nextBtn").addEventListener("click", () => {
+        const total = appState.activePool.length;
+        if (appState.currentIndex < total - 1) {
+          appState.currentIndex++;
+          appState.save();
+          renderApp();
+        } else {
+          appState.currentIndex++;
+          appState.save();
+          renderApp();
+        }
+      });
+      
+      // 8. Finished state Section actions
+      document.getElementById("restartSectionBtn").addEventListener("click", () => {
+        appState.activePool.forEach(q => {
+          delete appState.answeredMap[q.id];
+        });
+        
+        appState.currentIndex = 0;
+        appState.save();
+        renderApp();
+        showToast("تمت إعادة تهيئة التقدم للقسم الحالي", "success");
+      });
+      
+      document.getElementById("backToAllBtn").addEventListener("click", () => {
+        appState.activeCategory = "all";
+        categoryFilter.value = "all";
+        appState.currentIndex = 0;
+        appState.save();
+        prepareActivePool();
+        renderApp();
+        showToast("تم العودة لعرض جميع الأسئلة", "info");
+      });
+    }
+
+    // App controller initializer
+    window.addEventListener("DOMContentLoaded", () => {
+      appState.load();
+      populateCategoryFilter();
+      prepareActivePool();
+      initializeEvents();
+      renderApp();
+    });
+  </script>
+</body>
+</html>
