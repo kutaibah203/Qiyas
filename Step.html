@@ -355,14 +355,44 @@ function parseQuickAddLettered(raw){
   if(current && current.text && current.options.length>=2) questions.push(current);
   return { title, questions };
 }
+function findOptionMarkers(text){
+  // Locates a contiguous run of option letters A,B,C[,D] each followed by ':' or '-'.
+  const regex = /\b([A-D])[:\-]\s*/g;
+  const matches = [];
+  let m;
+  while((m = regex.exec(text))){
+    matches.push({ letter:m[1], index:m.index, end: m.index+m[0].length });
+  }
+  for(let i=0;i<matches.length;i++){
+    if(matches[i].letter!=='A') continue;
+    const seq = [matches[i]];
+    let expected = 'B';
+    let broken = false;
+    for(let j=i+1;j<matches.length;j++){
+      if(matches[j].letter===expected){
+        seq.push(matches[j]);
+        if(expected==='B') expected='C';
+        else if(expected==='C') expected='D';
+        else break; // found D, a run can be at most 4 options
+      } else if(expected==='D'){
+        break; // no D present — a 3-option question, which is fine
+      } else {
+        broken = true; break; // sequence interrupted before reaching at least A,B,C
+      }
+    }
+    if(!broken && seq.length>=3) return seq;
+  }
+  return null;
+}
 function parseQuickAddInline(raw){
-  // Format: "Q1: question text? A: opt1. B: opt2. C: opt3. D: opt4*" (may span 2 lines: a context
-  // line with no options, then the actual question+options on the next line). Correct option is
-  // whichever one ends with "*", not necessarily D.
+  // Format: "Q1: question text? A: opt1. B: opt2. C: opt3. D: opt4*" or "A- opt1 B- opt2 C- opt3*"
+  // (3 or 4 options, either ':' or '-' as separator). May span 2 lines: a context line with no
+  // options, then the actual question+options on the next line. Correct option is whichever one
+  // ends with "*", not necessarily the last.
   const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
   let title = '';
   let i = 0;
-  if(lines.length && /^(title|عنوان الاختبار|عنوان)\s*:/i.test(lines[0]) && !/\bA:/.test(lines[0])){
+  if(lines.length && /^(title|عنوان الاختبار|عنوان)\s*:/i.test(lines[0]) && !/\b[A-D][:\-]/.test(lines[0])){
     title = lines[0].replace(/^(title|عنوان الاختبار|عنوان)\s*:/i,'').trim();
     i = 1;
   }
@@ -372,17 +402,19 @@ function parseQuickAddInline(raw){
     const line = lines[i];
     const qMatch = line.match(/^Q\s*\d+\s*:\s*(.*)$/i);
     buffer = qMatch ? qMatch[1] : (buffer ? (buffer + ' ' + line) : line);
-    const optMatch = buffer.match(/\bA:\s*(.*?)\s*(?=\bB:)\bB:\s*(.*?)\s*(?=\bC:)\bC:\s*(.*?)\s*(?=\bD:)\bD:\s*(.*)$/s);
-    if(optMatch){
-      const stem = buffer.slice(0, buffer.indexOf(optMatch[0])).trim();
+    const seq = findOptionMarkers(buffer);
+    if(seq){
+      const stem = buffer.slice(0, seq[0].index).trim();
       let correctIndex = -1;
-      const options = [optMatch[1], optMatch[2], optMatch[3], optMatch[4]].map((o,idx)=>{
-        let clean = o.trim();
+      const options = seq.map((marker, idx) => {
+        const start = marker.end;
+        const end = (idx+1 < seq.length) ? seq[idx+1].index : buffer.length;
+        let clean = buffer.slice(start, end).trim();
         if(/\*\s*$/.test(clean)){ correctIndex = idx; clean = clean.replace(/\*\s*$/,'').trim(); }
         clean = clean.replace(/\.\s*$/,'').trim();
         return clean;
       });
-      if(stem && options.every(o=>o)) questions.push({ text: stem, options, correctIndex });
+      if(stem && options.length>=3 && options.every(o=>o)) questions.push({ text: stem, options, correctIndex });
       buffer = '';
     }
   }
@@ -661,9 +693,9 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
       ${[0,1,2,3].map(i=>`
         <div class="field" style="display:flex;align-items:center;gap:10px;">
           <input type="radio" name="qm-correct" value="${i}" id="qm-correct-${i}" ${q.correctIndex===i?'checked':''} style="width:18px;height:18px;flex-shrink:0;" />
-          <input type="text" id="qm-opt-${i}" value="${esc(q.options[i]||'')}" placeholder="Option ${letterOf(i)}" style="flex:1;" />
+          <input type="text" id="qm-opt-${i}" value="${esc(q.options[i]||'')}" placeholder="Option ${letterOf(i)}${i===3?' (optional)':''}" style="flex:1;" />
         </div>`).join('')}
-      <p class="faint" style="font-size:12px;">Select the radio button next to the correct answer.</p>
+      <p class="faint" style="font-size:12px;">Select the radio button next to the correct answer. Option D can be left empty for 3-option questions.</p>
       <div class="modal-actions">
         <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
         <button class="btn btn-primary" data-action="modal-question-submit" data-edit-id="${m.editId||''}">${m.editId?'Save':'Add'}</button>
@@ -1386,13 +1418,18 @@ async function handleQuickAddSubmit(){
 async function handleQuestionSubmit(editId){
   const m = state.modal;
   const text = document.getElementById('qm-text').value.trim();
-  const options = [0,1,2,3].map(i => document.getElementById('qm-opt-'+i).value.trim());
+  const rawOptions = [0,1,2,3].map(i => document.getElementById('qm-opt-'+i).value.trim());
   const radio = document.querySelector('input[name="qm-correct"]:checked');
-  if(!text || options.some(o=>!o) || !radio){
-    alert('Please fill in the question, all 4 options, and select the correct answer.');
+  if(!text || !rawOptions[0] || !rawOptions[1] || !rawOptions[2] || !radio){
+    alert('Please fill in the question, at least options A–C, and select the correct answer.');
     return;
   }
+  const options = rawOptions[3] ? rawOptions : rawOptions.slice(0,3);
   const correctIndex = parseInt(radio.value, 10);
+  if(correctIndex >= options.length){
+    alert('The selected correct answer must be one of the filled-in options.');
+    return;
+  }
   if(editId){
     await Data.updateQuestion(editId, { text, options, correctIndex });
   } else {
