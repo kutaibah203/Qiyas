@@ -546,8 +546,8 @@ function renderMenu(){
   if(!state.menuOpen || !state.user) return '';
   const items = menuItemsFor(state.user);
   return `
-  <div class="menu-overlay" data-action="close-menu">
-    <div class="menu-panel" onclick="event.stopPropagation()">
+  <div class="menu-overlay" data-action="menu-backdrop">
+    <div class="menu-panel">
       <div class="row-between" style="margin-bottom:18px;">
         <span style="font-weight:700;font-size:15px;">Menu</span>
         <button class="icon-btn" data-action="close-menu">${ICON.close}</button>
@@ -644,7 +644,7 @@ D) FSGS">${esc(m.value||'')}</textarea>
         <button class="btn btn-primary" data-action="quiz-submit-final">Submit Anyway</button>
       </div>`;
   }
-  return `<div class="modal-overlay" data-action="modal-backdrop"><div class="modal" onclick="event.stopPropagation()">${body}</div></div>`;
+  return `<div class="modal-overlay" data-action="modal-backdrop"><div class="modal">${body}</div></div>`;
 }
 
 /* ============ ROUTER ============ */
@@ -1259,6 +1259,7 @@ async function deleteRefAction(kind, qid){
 }
 function doLogout(){
   state.user = null; state.quiz = null; state.menuOpen = false; state.modal = null; state.pendingNumber = null;
+  clearSession();
   navigate('#/login');
 }
 
@@ -1373,7 +1374,8 @@ async function onAppClick(e){
     case 'logout': doLogout(); break;
     case 'open-menu': state.menuOpen = true; render(); break;
     case 'close-menu': state.menuOpen = false; render(); break;
-    case 'modal-backdrop': closeModal(); break;
+    case 'menu-backdrop': if(e.target === t){ state.menuOpen = false; render(); } break;
+    case 'modal-backdrop': if(e.target === t) closeModal(); break;
     case 'modal-cancel': closeModal(); break;
 
     case 'delete-ref': await deleteRefAction(t.dataset.kind, t.dataset.qid); break;
@@ -1416,10 +1418,11 @@ async function onAppSubmit(e){
       let u = await Data.getUser(ADMIN_NUMBER);
       if(!u) u = await Data.createUser(ADMIN_NUMBER, 'Admin', true);
       state.user = u;
+      saveSession(u);
       navigate('#/admin/home');
     } else {
       let u = await Data.getUser(number);
-      if(u){ state.user = u; navigate('#/user/home'); }
+      if(u){ state.user = u; saveSession(u); navigate('#/user/home'); }
       else { state.pendingNumber = number; navigate('#/name'); }
     }
   } else if(e.target.id === 'name-form'){
@@ -1428,15 +1431,41 @@ async function onAppSubmit(e){
     if(!name) return;
     const u = await Data.createUser(state.pendingNumber, name, false);
     state.user = u; state.pendingNumber = null;
+    saveSession(u);
     navigate('#/user/home');
   }
+}
+function saveSession(u){
+  try{ localStorage.setItem('step_session', JSON.stringify({ number: u.number })); }catch(e){}
+}
+function clearSession(){
+  try{ localStorage.removeItem('step_session'); }catch(e){}
+}
+
+async function initApp(){
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem('step_session') || 'null'); }catch(e){}
+  if(saved && saved.number){
+    try{
+      const u = await Data.getUser(saved.number);
+      if(u){
+        state.user = u;
+        if(!location.hash || location.hash==='#/login' || location.hash==='#/name'){
+          location.hash = u.isAdmin ? '#/admin/home' : '#/user/home';
+        }
+      } else {
+        clearSession();
+      }
+    }catch(e){ clearSession(); }
+  }
+  if(!location.hash) location.hash = '#/login';
+  render();
 }
 
 app.addEventListener('click', onAppClick);
 app.addEventListener('submit', onAppSubmit);
 window.addEventListener('hashchange', render);
-if(!location.hash) location.hash = '#/login';
-render();
+initApp();
 </script>
 </body>
 </html>
