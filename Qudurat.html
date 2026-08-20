@@ -154,6 +154,14 @@ label{display:block;font-size:13px;color:var(--text-dim);margin-bottom:6px;font-
   color:var(--text);padding:12px 20px;border-radius:12px;font-size:13.5px;z-index:60;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;}
 .toast.show{opacity:1;bottom:34px;}
 .loader{text-align:center;padding:60px 20px;color:var(--text-faint);}
+.switch{position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch-slider{position:absolute;cursor:pointer;inset:0;background:var(--surface-3);border-radius:24px;transition:.2s;}
+.switch-slider:before{content:'';position:absolute;height:18px;width:18px;right:3px;bottom:3px;background:var(--text-dim);border-radius:50%;transition:.2s;}
+.switch input:checked + .switch-slider{background:var(--accent);}
+.switch input:checked + .switch-slider:before{transform:translateX(-18px);background:#1a1408;}
+.offline-banner{display:flex;align-items:center;gap:8px;background:rgba(79,168,160,.1);border:1px solid var(--accent2);color:var(--accent2);
+  padding:10px 14px;border-radius:12px;font-size:12.5px;margin-bottom:14px;}
 </style>
 </head>
 <body>
@@ -189,9 +197,145 @@ let state = {
   sections:[], sectionsLoaded:false,
   drawerOpen:false,
   route:{name:'login', params:{}},
+  history:[],
   quiz:null, // active quiz session
-  cache:{}
+  cache:{},
+  isOffline:false
 };
+
+/* ================= offline / local cache helpers ================= */
+let LS_AVAILABLE = null;
+function checkLocalStorageAvailable(){
+  if(LS_AVAILABLE!==null) return LS_AVAILABLE;
+  try{
+    const t='__qudurat_test__';
+    localStorage.setItem(t,'1');
+    const ok = localStorage.getItem(t)==='1';
+    localStorage.removeItem(t);
+    LS_AVAILABLE = ok;
+  }catch(e){ LS_AVAILABLE = false; }
+  return LS_AVAILABLE;
+}
+function lsGet(key, fallback){ try{ const v=localStorage.getItem(key); return v!==null? JSON.parse(v): fallback; }catch(e){ return fallback; } }
+function lsSet(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch(e){ console.error('localStorage write failed:', e); return false; }
+}
+function blobKey(){ return 'qudurat_offline_'+state.userNumber; }
+function pendingKey(){ return 'qudurat_pending_'+state.userNumber; }
+function toggleKey(){ return 'qudurat_offline_on_'+state.userNumber; }
+function offlineEnabled(){ return state.userNumber ? localStorage.getItem(toggleKey())==='1' : false; }
+function setOfflineEnabled(v){ if(state.userNumber) localStorage.setItem(toggleKey(), v?'1':'0'); }
+function sanitizeTs(ts){
+  if(ts && typeof ts==='object'){
+    if(typeof ts.seconds==='number') return {seconds:ts.seconds};
+    if(typeof ts.toDate==='function'){ try{ return {seconds:Math.floor(ts.toDate().getTime()/1000)}; }catch(e){ return {seconds:0}; } }
+  }
+  return {seconds:0};
+}
+function sanitizeDoc(docObj){
+  const out = {...docObj};
+  if('createdAt' in out) out.createdAt = sanitizeTs(out.createdAt);
+  if('addedAt' in out) out.addedAt = sanitizeTs(out.addedAt);
+  return out;
+}
+function getBlob(){ return state.userNumber? lsGet(blobKey(), null) : null; }
+function saveBlob(b){
+  if(!state.userNumber) return false;
+  b.syncedAt = Date.now();
+  const ok = lsSet(blobKey(), b);
+  if(!ok) toast('⚠️ تعذّر حفظ النسخة المحلية (مساحة التخزين ممتلئة أو غير متاحة)');
+  return ok;
+}
+function getPending(){ return state.userNumber? lsGet(pendingKey(), []) : []; }
+function savePending(arr){ if(state.userNumber) lsSet(pendingKey(), arr); }
+function addPending(op){ const arr=getPending(); op.id='op_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); arr.push(op); savePending(arr); return op.id; }
+function classifyError(e){
+  const code = e && e.code;
+  if(code==='permission-denied') return 'permission';
+  return 'network';
+}
+async function fullSync(){
+  await loadSections(true);
+  await getAllQuestions();
+  await getWrongList(state.userNumber);
+  await getSavedList(state.userNumber);
+  await getAttempts(state.userNumber);
+}
+async function onToggleOffline(v){
+  setOfflineEnabled(v);
+  if(v){
+    toast('جارِ تنزيل نسخة الأقسام...');
+    try{ await fullSync(); toast('تم تنزيل الأقسام بنجاح ✓'); }
+    catch(e){
+      if(classifyError(e)==='permission') toast('تعذّر التنزيل: لا توجد صلاحية قراءة (تحقق من Firestore Rules)');
+      else toast('تعذّر التنزيل الآن، ستُحمّل النسخة تلقائياً عند نجاح الاتصال');
+    }
+  }else{
+    toast('تم إيقاف وضع عدم الاتصال');
+  }
+  render();
+}
+async function manualRefreshOffline(){
+  toggleDrawer(false);
+  toast('جارِ تحديث البيانات...');
+  try{ await fullSync(); toast('تم تحديث البيانات بنجاح ✓'); }
+  catch(e){
+    if(classifyError(e)==='permission') toast('تعذّر التحديث: لا توجد صلاحية قراءة');
+    else toast('تعذّر الاتصال الآن، حاول لاحقاً');
+  }
+  render();
+}
+function confirmClearLocalData(){
+  toggleDrawer(false);
+  const pendingN = getPending().length;
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">حذف البيانات المحلية</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <p class="sub">${pendingN>0? `⚠️ يوجد ${pendingN} عملية لم تُزامَن بعد (نتائج اختبارات أو تحديثات) — سيتم فقدانها نهائياً إذا حذفت البيانات الآن. تأكد من الاتصال بالإنترنت أولاً حتى تُزامَن. `:''}سيتم حذف نسخة الأقسام والأسئلة المحفوظة محلياً على هذا الجهاز فقط، ولن يتأثر أي شيء في قاعدة البيانات الفعلية. متابعة؟</p>
+    <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="doClearLocalData()">حذف</button></div>
+  `, true);
+}
+async function doClearLocalData(){
+  if(state.userNumber){ localStorage.removeItem(blobKey()); localStorage.removeItem(pendingKey()); }
+  closeModal();
+  toast('تم حذف البيانات المحلية');
+  render();
+}
+async function flushPendingQueue(){
+  if(!state.userNumber || !offlineEnabled()) return;
+  const queue = getPending();
+  if(queue.length===0) return;
+  let syncedCount = 0;
+  for(let i=0;i<queue.length;i++){
+    const op = queue[i];
+    try{
+      if(op.type==='attempt'){
+        await db.collection('users').doc(state.userNumber).collection('attempts').add({...op.payload.attempt, createdAt:FieldValue.serverTimestamp()});
+        const blob=getBlob(); if(blob && blob.attempts){ blob.attempts = blob.attempts.filter(a=>a.id!==op.payload.localId); saveBlob(blob); }
+      }else if(op.type==='wrong_set'){
+        await db.collection('users').doc(state.userNumber).collection('wrong').doc(op.payload.id).set({...op.payload.data, addedAt:FieldValue.serverTimestamp()});
+      }else if(op.type==='wrong_clear'){
+        await db.collection('users').doc(state.userNumber).collection('wrong').doc(op.payload.id).delete();
+      }else if(op.type==='saved_set'){
+        await db.collection('users').doc(state.userNumber).collection('saved').doc(op.payload.id).set({...op.payload.data, addedAt:FieldValue.serverTimestamp()});
+      }else if(op.type==='saved_clear'){
+        await db.collection('users').doc(state.userNumber).collection('saved').doc(op.payload.id).delete();
+      }
+      syncedCount++;
+    }catch(e){
+      if(classifyError(e)==='network'){
+        savePending(queue.slice(i)); // keep this + remaining, still offline
+        if(syncedCount>0){ toast(`تمت مزامنة ${syncedCount} عملية، والباقي بانتظار الاتصال`); render(); }
+        return;
+      }else{
+        console.error('sync op failed permanently, dropping:', op, e);
+      }
+    }
+  }
+  savePending([]);
+  if(syncedCount>0){ toast(`تمت مزامنة ${syncedCount} عملية معلّقة بنجاح ✓`); render(); }
+}
+window.addEventListener('online', ()=>{ if(state.userNumber) flushPendingQueue(); });
 
 /* ================= helpers ================= */
 function toast(msg){
@@ -216,8 +360,26 @@ function fmtTime(ts){
   return d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
 }
 function nav(name, params={}){
+  if(state.route && state.route.name){ state.history.push({name:state.route.name, params:state.route.params}); }
   state.route={name,params}; state.drawerOpen=false; render();
   window.scrollTo(0,0);
+}
+function actuallyGoBack(){
+  if(state.history.length>0){ state.route = state.history.pop(); }
+  else{ state.route = {name:'home',params:{}}; }
+  state.drawerOpen=false; render();
+  window.scrollTo(0,0);
+}
+function goBack(){
+  if(state.route.name==='quiz'){
+    openModal(`
+      <div class="modal-head"><h3 style="margin:0;">إنهاء الاختبار؟</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+      <p class="sub">سيتم الخروج من الاختبار الحالي بدون حفظ نتيجته. متابعة؟</p>
+      <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="closeModal();actuallyGoBack();">خروج</button></div>
+    `, true);
+    return;
+  }
+  actuallyGoBack();
 }
 async function sessionSave(num,isAdmin){
   try{ localStorage.setItem('qudurat_session', JSON.stringify({num,isAdmin})); }catch(e){}
@@ -240,10 +402,21 @@ async function findOrCreateUser(number){
 }
 async function loadSections(force){
   if(state.sectionsLoaded && !force) return state.sections;
-  const snap = await db.collection('sections').orderBy('createdAt','asc').get();
-  state.sections = snap.docs.map(d=>({id:d.id,...d.data()}));
-  state.sectionsLoaded = true;
-  return state.sections;
+  try{
+    const snap = await db.collection('sections').orderBy('createdAt','asc').get();
+    state.sections = snap.docs.map(d=>({id:d.id,...d.data()}));
+    state.sectionsLoaded = true;
+    state.isOffline = false;
+    if(offlineEnabled()){ const blob=getBlob()||{}; blob.sections=state.sections.map(sanitizeDoc); saveBlob(blob); }
+    return state.sections;
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(offlineEnabled()){
+      const blob = getBlob();
+      if(blob && blob.sections && blob.sections.length){ state.sections=blob.sections; state.sectionsLoaded=true; state.isOffline=true; return state.sections; }
+    }
+    throw e;
+  }
 }
 async function addSection(name){
   const ref = await db.collection('sections').add({name, createdAt:FieldValue.serverTimestamp()});
@@ -262,18 +435,69 @@ async function deleteSection(id){
   await batch.commit();
   state.sectionsLoaded=false;
 }
+function sortByOrder(list){
+  return list.slice().sort((a,b)=> (a.order??a.createdAt?.seconds??0) - (b.order??b.createdAt?.seconds??0));
+}
+function sortAllBySectionThenOrder(list, sections){
+  const idx = {}; (sections||[]).forEach((s,i)=>idx[s.id]=i);
+  return list.slice().sort((a,b)=>{
+    const sa = idx[a.sectionId]??999999, sb = idx[b.sectionId]??999999;
+    if(sa!==sb) return sa-sb;
+    return (a.order??a.createdAt?.seconds??0) - (b.order??b.createdAt?.seconds??0);
+  });
+}
 async function getQuestions(sectionId){
-  const snap = await db.collection('questions').where('sectionId','==',sectionId).get();
-  const list = snap.docs.map(d=>({id:d.id,...d.data()}));
-  list.sort((a,b)=> (a.createdAt?.seconds||0) - (b.createdAt?.seconds||0));
-  return list;
+  try{
+    const snap = await db.collection('questions').where('sectionId','==',sectionId).get();
+    let list = snap.docs.map(d=>({id:d.id,...d.data()}));
+    list = sortByOrder(list);
+    state.isOffline = false;
+    if(offlineEnabled()){
+      const blob = getBlob()||{};
+      const others = (blob.questions||[]).filter(q=>q.sectionId!==sectionId);
+      blob.questions = others.concat(list.map(sanitizeDoc));
+      saveBlob(blob);
+    }
+    return list;
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(offlineEnabled()){
+      const blob = getBlob();
+      if(blob && blob.questions){ state.isOffline=true; return sortByOrder(blob.questions.filter(q=>q.sectionId===sectionId)); }
+    }
+    throw e;
+  }
 }
 async function getAllQuestions(){
-  const snap = await db.collection('questions').get();
-  return snap.docs.map(d=>({id:d.id,...d.data()}));
+  try{
+    await loadSections();
+    const snap = await db.collection('questions').get();
+    let list = snap.docs.map(d=>({id:d.id,...d.data()}));
+    list = sortAllBySectionThenOrder(list, state.sections);
+    state.isOffline = false;
+    if(offlineEnabled()){ const blob=getBlob()||{}; blob.questions=list.map(sanitizeDoc); saveBlob(blob); }
+    return list;
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(offlineEnabled()){
+      const blob = getBlob();
+      if(blob && blob.questions){
+        state.isOffline=true;
+        const sections = (blob.sections && blob.sections.length) ? blob.sections : state.sections;
+        return sortAllBySectionThenOrder(blob.questions, sections);
+      }
+    }
+    throw e;
+  }
+}
+async function nextOrderForSection(sectionId){
+  const snap = await db.collection('questions').where('sectionId','==',sectionId).get();
+  return snap.size;
 }
 async function addQuestion(sectionId,type,data){
-  await db.collection('questions').add({sectionId,type,...data,createdAt:FieldValue.serverTimestamp()});
+  let order = data.order;
+  if(order===undefined || order===null || isNaN(order)) order = await nextOrderForSection(sectionId);
+  await db.collection('questions').add({sectionId,type,...data,order,createdAt:FieldValue.serverTimestamp()});
 }
 async function updateQuestion(id,type,data){
   await db.collection('questions').doc(id).update({type,...data});
@@ -284,40 +508,129 @@ async function deleteQuestion(id){
 }
 
 async function addAttempt(userNumber, attempt){
-  const ref = await db.collection('users').doc(userNumber).collection('attempts').add({
-    ...attempt, createdAt:FieldValue.serverTimestamp()
-  });
-  return ref.id;
+  try{
+    const ref = await db.collection('users').doc(userNumber).collection('attempts').add({
+      ...attempt, createdAt:FieldValue.serverTimestamp()
+    });
+    if(offlineEnabled()){
+      const blob=getBlob()||{};
+      blob.attempts=[sanitizeDoc({id:ref.id,...attempt,createdAt:{seconds:Math.floor(Date.now()/1000)}}), ...(blob.attempts||[])];
+      saveBlob(blob);
+    }
+    return ref.id;
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(!offlineEnabled()) throw e;
+    const localId = 'local_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+    const localAttempt = {id:localId, ...attempt, createdAt:{seconds:Math.floor(Date.now()/1000)}, pending:true};
+    const blob = getBlob()||{}; blob.attempts=[localAttempt, ...(blob.attempts||[])]; saveBlob(blob);
+    addPending({type:'attempt', payload:{localId, attempt}});
+    return localId;
+  }
 }
 async function getAttempts(userNumber){
-  const snap = await db.collection('users').doc(userNumber).collection('attempts').orderBy('createdAt','desc').get();
-  return snap.docs.map(d=>({id:d.id,...d.data()}));
+  try{
+    const snap = await db.collection('users').doc(userNumber).collection('attempts').orderBy('createdAt','desc').get();
+    const list = snap.docs.map(d=>({id:d.id,...d.data()}));
+    state.isOffline=false;
+    if(offlineEnabled()){ const blob=getBlob()||{}; blob.attempts=list.map(sanitizeDoc); saveBlob(blob); }
+    return list;
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(offlineEnabled()){
+      const blob=getBlob();
+      if(blob && blob.attempts){ state.isOffline=true; return blob.attempts; }
+    }
+    throw e;
+  }
 }
 async function getAttempt(userNumber, id){
-  const d = await db.collection('users').doc(userNumber).collection('attempts').doc(id).get();
-  return d.exists ? {id:d.id,...d.data()} : null;
+  if(String(id).startsWith('local_')){
+    const blob = getBlob();
+    return blob && blob.attempts ? (blob.attempts.find(a=>a.id===id)||null) : null;
+  }
+  try{
+    const d = await db.collection('users').doc(userNumber).collection('attempts').doc(id).get();
+    return d.exists ? {id:d.id,...d.data()} : null;
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(offlineEnabled()){
+      const blob=getBlob();
+      if(blob && blob.attempts) return blob.attempts.find(a=>a.id===id)||null;
+    }
+    throw e;
+  }
 }
 
 async function setWrong(userNumber, q){
-  await db.collection('users').doc(userNumber).collection('wrong').doc(q.id).set({
-    questionId:q.id, sectionId:q.sectionId, type:q.type, addedAt:FieldValue.serverTimestamp()
-  });
+  try{
+    await db.collection('users').doc(userNumber).collection('wrong').doc(q.id).set({
+      questionId:q.id, sectionId:q.sectionId, type:q.type, addedAt:FieldValue.serverTimestamp()
+    });
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(!offlineEnabled()) throw e;
+    const blob = getBlob()||{}; blob.wrong=(blob.wrong||[]).filter(w=>w.questionId!==q.id);
+    blob.wrong.push({questionId:q.id, sectionId:q.sectionId, type:q.type, addedAt:{seconds:Math.floor(Date.now()/1000)}});
+    saveBlob(blob);
+    addPending({type:'wrong_set', payload:{id:q.id, data:{questionId:q.id, sectionId:q.sectionId, type:q.type}}});
+  }
 }
 async function clearWrong(userNumber, questionId){
-  await db.collection('users').doc(userNumber).collection('wrong').doc(questionId).delete();
+  try{
+    await db.collection('users').doc(userNumber).collection('wrong').doc(questionId).delete();
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(!offlineEnabled()) throw e;
+    const blob = getBlob()||{}; blob.wrong=(blob.wrong||[]).filter(w=>w.questionId!==questionId); saveBlob(blob);
+    addPending({type:'wrong_clear', payload:{id:questionId}});
+  }
 }
 async function getWrongList(userNumber){
-  const snap = await db.collection('users').doc(userNumber).collection('wrong').orderBy('addedAt','desc').get();
-  return snap.docs.map(d=>d.data());
+  try{
+    const snap = await db.collection('users').doc(userNumber).collection('wrong').orderBy('addedAt','desc').get();
+    const list = snap.docs.map(d=>d.data());
+    state.isOffline=false;
+    if(offlineEnabled()){ const blob=getBlob()||{}; blob.wrong=list.map(sanitizeDoc); saveBlob(blob); }
+    return list;
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(offlineEnabled()){
+      const blob=getBlob();
+      if(blob && blob.wrong){ state.isOffline=true; return blob.wrong; }
+    }
+    throw e;
+  }
 }
 async function toggleSaved(userNumber, q, save){
-  const ref = db.collection('users').doc(userNumber).collection('saved').doc(q.id);
-  if(save){ await ref.set({questionId:q.id, sectionId:q.sectionId, type:q.type, addedAt:FieldValue.serverTimestamp()}); }
-  else{ await ref.delete(); }
+  try{
+    const ref = db.collection('users').doc(userNumber).collection('saved').doc(q.id);
+    if(save){ await ref.set({questionId:q.id, sectionId:q.sectionId, type:q.type, addedAt:FieldValue.serverTimestamp()}); }
+    else{ await ref.delete(); }
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(!offlineEnabled()) throw e;
+    const blob = getBlob()||{}; blob.saved=(blob.saved||[]).filter(s=>s.questionId!==q.id);
+    if(save){ blob.saved.push({questionId:q.id, sectionId:q.sectionId, type:q.type, addedAt:{seconds:Math.floor(Date.now()/1000)}}); }
+    saveBlob(blob);
+    addPending(save? {type:'saved_set', payload:{id:q.id, data:{questionId:q.id, sectionId:q.sectionId, type:q.type}}} : {type:'saved_clear', payload:{id:q.id}});
+  }
 }
 async function getSavedList(userNumber){
-  const snap = await db.collection('users').doc(userNumber).collection('saved').orderBy('addedAt','desc').get();
-  return snap.docs.map(d=>d.data());
+  try{
+    const snap = await db.collection('users').doc(userNumber).collection('saved').orderBy('addedAt','desc').get();
+    const list = snap.docs.map(d=>d.data());
+    state.isOffline=false;
+    if(offlineEnabled()){ const blob=getBlob()||{}; blob.saved=list.map(sanitizeDoc); saveBlob(blob); }
+    return list;
+  }catch(e){
+    if(classifyError(e)==='permission') throw e;
+    if(offlineEnabled()){
+      const blob=getBlob();
+      if(blob && blob.saved){ state.isOffline=true; return blob.saved; }
+    }
+    throw e;
+  }
 }
 async function isSaved(userNumber, questionId){
   const d = await db.collection('users').doc(userNumber).collection('saved').doc(questionId).get();
@@ -370,20 +683,41 @@ function questionSummaryText(q){
 
 /* ================= DRAWER + TOPBAR ================= */
 function renderTopbar(){
+  const showBack = state.route.name!=='home';
   return `
   <div class="topbar">
-    <button class="icon-btn" onclick="doLogout()" title="تسجيل الخروج">${iconLogout()}</button>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="icon-btn" onclick="doLogout()" title="تسجيل الخروج">${iconLogout()}</button>
+      ${showBack? `<button class="icon-btn" onclick="goBack()" title="رجوع">${iconBack()}</button>`:''}
+    </div>
     <div class="topbar-title">${state.isAdmin?'لوحة المشرف':'قُدرات'}</div>
     <button class="icon-btn" onclick="toggleDrawer(true)" title="القائمة">${iconMenu()}</button>
   </div>`;
 }
 function renderDrawer(){
+  const pendingN = state.userNumber? getPending().length : 0;
+  const blob = state.userNumber? getBlob() : null;
+  const diagLine = offlineEnabled()
+    ? (blob
+        ? `آخر تنزيل: ${blob.syncedAt? new Date(blob.syncedAt).toLocaleString('ar-SA'):'-'} · أقسام: ${(blob.sections||[]).length} · أسئلة: ${(blob.questions||[]).length}`
+        : 'لا توجد نسخة محلية بعد — اضغط "تحديث البيانات"')
+    : '';
   const userItems = `
     <a class="drawer-item ${state.route.name==='sections'?'active':''}" onclick="nav('sections')"><span class="ic">${iconGrid()}</span> الأقسام</a>
     <a class="drawer-item ${state.route.name==='wrong'?'active':''}" onclick="nav('wrong')"><span class="ic">${iconX()}</span> الأسئلة الخاطئة</a>
     <a class="drawer-item ${state.route.name==='saved'?'active':''}" onclick="nav('saved')"><span class="ic">${iconBookmark()}</span> الأسئلة المحفوظة</a>
     <a class="drawer-item ${state.route.name==='history'?'active':''}" onclick="nav('history')"><span class="ic">${iconClock()}</span> سجل اختبارات الأقسام</a>
     <a class="drawer-item ${state.route.name==='home'?'active':''}" onclick="nav('home')"><span class="ic">${iconHome()}</span> الرئيسية</a>
+    <div class="divider" style="margin:6px 20px;"></div>
+    <div class="drawer-item" style="justify-content:space-between;cursor:default;">
+      <span style="display:flex;align-items:center;gap:12px;"><span class="ic">${iconDownload()}</span> تنزيل الأقسام (بدون اتصال)</span>
+      <label class="switch"><input type="checkbox" ${offlineEnabled()?'checked':''} onchange="onToggleOffline(this.checked)"><span class="switch-slider"></span></label>
+    </div>
+    ${pendingN>0? `<div style="padding:2px 20px 10px;font-size:11.5px;color:var(--accent2);">🔄 ${pendingN} عملية بانتظار المزامنة</div>`:''}
+    ${diagLine? `<div style="padding:2px 20px 10px;font-size:10.5px;color:var(--text-faint);line-height:1.6;">${diagLine}</div>`:''}
+    ${offlineEnabled()?
+      `<a class="drawer-item" onclick="manualRefreshOffline()"><span class="ic">${iconRefresh()}</span> تحديث البيانات</a>`
+      :`<a class="drawer-item" onclick="confirmClearLocalData()"><span class="ic">${iconTrash()}</span> حذف البيانات المحلية</a>`}
   `;
   const adminItems = `
     <a class="drawer-item ${state.route.name==='admin-sections'?'active':''}" onclick="nav('admin-sections')"><span class="ic">${iconGrid()}</span> إدارة الأقسام</a>
@@ -402,7 +736,7 @@ function renderDrawer(){
 function toggleDrawer(v){ state.drawerOpen=v; render(); }
 async function doLogout(){
   await sessionClear();
-  state = {userNumber:null,isAdmin:false,sections:[],sectionsLoaded:false,drawerOpen:false,route:{name:'login',params:{}},quiz:null,cache:{}};
+  state = {userNumber:null,isAdmin:false,sections:[],sectionsLoaded:false,drawerOpen:false,route:{name:'login',params:{}},history:[],quiz:null,cache:{},isOffline:false};
   render();
 }
 
@@ -421,6 +755,9 @@ function iconEdit(){ return svgIcon('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0
 function iconPlus(){ return svgIcon('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'); }
 function iconClose(){ return svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'); }
 function iconChev(){ return svgIcon('<polyline points="15 18 9 12 15 6"/>'); }
+function iconDownload(){ return svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'); }
+function iconRefresh(){ return svgIcon('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>'); }
+function iconBack(){ return svgIcon('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'); }
 
 /* ================= LOGIN ================= */
 function renderLogin(){
@@ -444,6 +781,7 @@ async function doLogin(){
     state.userNumber = u.number; state.isAdmin = u.isAdmin;
     await sessionSave(u.number, u.isAdmin);
     nav('home');
+    flushPendingQueue();
   }catch(e){
     console.error(e);
     const code = e.code || '';
@@ -649,6 +987,7 @@ async function startQuiz(sectionId){
   }
 }
 function beginQuizSession(questions, sectionName, sectionId){
+  if(state.route && state.route.name && state.route.name!=='quiz'){ state.history.push({name:state.route.name, params:state.route.params}); }
   state.quiz = {
     sectionId, sectionName,
     questions, index:0,
@@ -773,7 +1112,7 @@ function renderReviewScreen(){
   const flagged = quiz.questions.map((q,i)=>({q,i})).filter(x=>quiz.reviewFlags[x.q.id]);
   const unanswered = quiz.answers.map((a,i)=>({a,i})).filter(x=>x.a.selectedIndex===null);
   cont.innerHTML = `
-    <div class="topbar"><button class="icon-btn" onclick="renderQuizFromRoute()">${iconChev()}</button><div class="topbar-title">مراجعة قبل الإرسال</div><div style="width:40px;"></div></div>
+    <div class="topbar"><button class="icon-btn" onclick="renderQuizFromRoute()">${iconBack()}</button><div class="topbar-title">مراجعة قبل الإرسال</div><div style="width:40px;"></div></div>
     <div class="page">
       <div class="section-title">قبل الإرسال</div>
       ${unanswered.length? `<div class="card"><b>أسئلة غير مجابة (${unanswered.length})</b><div style="margin-top:10px;">
@@ -819,10 +1158,12 @@ async function submitQuiz(){
   showResultScreen(attemptId, attempt, quiz);
 }
 function showResultScreen(attemptId, attempt, quiz){
+  state.route = {name:'result', params:{}};
   const wrongItems = attempt.answers.map((a,i)=>({a,q:quiz.questions[i]})).filter(x=>!x.a.isCorrect);
   const pct = Math.round((attempt.score/attempt.total)*100);
   const cont = document.getElementById('app');
   cont.innerHTML = `
+    <div class="topbar"><button class="icon-btn" onclick="goBack()">${iconBack()}</button><div class="topbar-title">نتيجة الاختبار</div><div style="width:40px;"></div></div>
     <div class="page">
       <div style="text-align:center;margin:20px 0 30px;">
         <div style="font-size:46px;font-weight:900;font-family:'Tajawal';color:var(--accent);">${attempt.score}/${attempt.total}</div>
@@ -975,7 +1316,9 @@ let questionDraftType = null;
 async function renderAdminQuestionAdd(sectionId, questionId){
   const cont = document.getElementById('page-content');
   let existing = null;
+  let suggestedOrder = '';
   if(questionId){ existing = await getQuestionById(questionId); questionDraftType = existing?.type; }
+  else{ try{ const list = await getQuestions(sectionId); suggestedOrder = list.length+1; }catch(e){} }
   cont.innerHTML = `
     <div class="section-title">${existing?'تعديل السؤال':'إضافة سؤال'}</div>
     <div class="field">
@@ -984,7 +1327,7 @@ async function renderAdminQuestionAdd(sectionId, questionId){
         ${Object.keys(QTYPES).map(t=>`<div class="pill ${questionDraftType===t?'active':''}" onclick="selectQType('${t}','${sectionId}','${questionId||''}')">${QTYPES[t].label}</div>`).join('')}
       </div>
     </div>
-    <div id="qFormFields">${questionDraftType?questionFormFields(questionDraftType, existing):'<div class="sub">اختر نوع السؤال أولاً</div>'}</div>
+    <div id="qFormFields">${questionDraftType?questionFormFields(questionDraftType, existing, suggestedOrder):'<div class="sub">اختر نوع السؤال أولاً</div>'}</div>
     <button class="btn btn-primary" style="margin-top:10px;" onclick="saveManualQuestion('${sectionId}','${questionId||''}')">حفظ السؤال</button>
     <button class="btn btn-outline" style="margin-top:10px;" onclick="nav('admin-section-edit',{id:'${sectionId}'})">إلغاء</button>
   `;
@@ -993,17 +1336,21 @@ function selectQType(t, sectionId, questionId){
   questionDraftType = t;
   renderAdminQuestionAdd(sectionId, questionId||null);
 }
-function questionFormFields(type, existing){
+function questionFormFields(type, existing, suggestedOrder){
   const ans = existing?.answers || (type==='analogy'? [{w1:'',w2:''},{w1:'',w2:''},{w1:'',w2:''},{w1:'',w2:''}] : ['','','','']);
   const correctIndex = existing?.correctIndex ?? 0;
+  const orderVal = existing?.order!==undefined && existing?.order!==null ? existing.order : (suggestedOrder!==undefined? suggestedOrder : '');
+  const orderField = `<div class="field"><label>رقم السؤال</label><input type="number" id="f_order" min="1" placeholder="مثال: 1" value="${orderVal}"></div>`;
   if(type==='contextual_error'){
     return `
+      ${orderField}
       <div class="field"><label>الجملة (السؤال)</label><textarea id="f_sentence">${escapeHtml(existing?.sentence)}</textarea></div>
       ${answersBlock(ans,correctIndex,false)}
     `;
   }
   if(type==='analogy'){
     return `
+      ${orderField}
       <div class="field"><label>المفردة الأولى للسؤال</label><input type="text" id="f_word1" value="${escapeHtml(existing?.word1)}"></div>
       <div class="field"><label>المفردة الثانية للسؤال</label><input type="text" id="f_word2" value="${escapeHtml(existing?.word2)}"></div>
       ${answersBlockAnalogy(ans, correctIndex)}
@@ -1011,16 +1358,18 @@ function questionFormFields(type, existing){
   }
   if(type==='reading'){
     return `
+      ${orderField}
       <div class="field"><label>النص</label><textarea id="f_passage" style="min-height:140px;">${escapeHtml(existing?.passage)}</textarea></div>
       <div class="field"><label>السؤال</label><input type="text" id="f_question" value="${escapeHtml(existing?.question)}"></div>
       ${answersBlock(ans,correctIndex,false)}
     `;
   }
   if(type==='odd_word'){
-    return `${answersBlock(ans,correctIndex,false)}`;
+    return `${orderField}${answersBlock(ans,correctIndex,false)}`;
   }
   if(type==='sentence_completion'){
     return `
+      ${orderField}
       <div class="field"><label>الجملة (استخدم ........ لتحديد الفراغ)</label><textarea id="f_sentence">${escapeHtml(existing?.sentence)}</textarea></div>
       ${answersBlock(ans,correctIndex,false)}
     `;
@@ -1055,6 +1404,11 @@ async function saveManualQuestion(sectionId, questionId){
   const correctRadio = document.querySelector('input[name=correctAns]:checked');
   const correctIndex = correctRadio? parseInt(correctRadio.value):0;
   let data = { correctIndex };
+  const orderInput = document.getElementById('f_order');
+  if(orderInput && orderInput.value!==''){
+    const n = parseInt(orderInput.value,10);
+    if(!isNaN(n)) data.order = n;
+  }
   if(type==='contextual_error' || type==='sentence_completion'){
     data.sentence = document.getElementById('f_sentence').value.trim();
     data.answers = [0,1,2,3].map(i=>document.getElementById(`f_ans_${i}`).value.trim());
@@ -1136,6 +1490,10 @@ function parseQuickAdd(rawText){
     const typeKey = Object.keys(QTYPES).find(k=>QTYPES[k].label===typeLabel);
     if(!typeKey) throw new Error(`نوع السؤال غير معروف في السؤال رقم ${n}: "${typeLabel}"`);
 
+    const qNumMatch = block.match(/رقم السؤال:\s*(\d+)/);
+    if(!qNumMatch) throw new Error(`لم أجد "رقم السؤال:" في السؤال رقم ${n} (بالترتيب داخل النص)`);
+    const qOrder = parseInt(qNumMatch[1],10);
+
     const answersIdx = block.indexOf('الإجابات:');
     if(answersIdx===-1) throw new Error(`لم أجد "الإجابات:" في السؤال رقم ${n}`);
     const header = block.slice(0, answersIdx);
@@ -1177,7 +1535,7 @@ function parseQuickAdd(rawText){
     }
     if(correctIndex===-1) throw new Error(`لم أجد إجابة معلّمة بـ "--- هذه الإجابة الصحيحة" في السؤال رقم ${n}`);
 
-    return { type:typeKey, answers, correctIndex, word1, word2, sentence, passage, question };
+    return { type:typeKey, order:qOrder, answers, correctIndex, word1, word2, sentence, passage, question };
   });
 
   return { secNumber, secTitle, questions };
@@ -1193,7 +1551,7 @@ function previewQuickAdd(){
         <b>عدد الأسئلة المستخرجة: ${quickParsed.questions.length}</b>
         ${quickParsed.questions.map((q,i)=>`
           <div style="padding:10px 0;border-bottom:1px solid var(--border);">
-            <span class="type-badge">${QTYPES[q.type].label}</span>
+            <span class="type-badge">سؤال ${q.order} · ${QTYPES[q.type].label}</span>
             <div style="font-size:13.5px;margin-top:4px;">${escapeHtml(questionSummaryText(q))||'(بدون نص ظاهر)'}</div>
             <div class="sub" style="color:var(--success);">الصحيحة: ${escapeHtml(q.type==='analogy'? (q.answers[q.correctIndex].w1+' : '+q.answers[q.correctIndex].w2) : q.answers[q.correctIndex])}</div>
           </div>`).join('')}
@@ -1211,8 +1569,9 @@ async function saveQuickAdd(){
   document.getElementById('quickSaveBtn').textContent='جارِ الحفظ...';
   try{
     const sectionId = await addSection(quickParsed.secTitle);
-    for(const q of quickParsed.questions){
-      const data = {correctIndex:q.correctIndex, answers:q.answers};
+    for(let i=0;i<quickParsed.questions.length;i++){
+      const q = quickParsed.questions[i];
+      const data = {correctIndex:q.correctIndex, answers:q.answers, order:q.order};
       if(q.word1!==undefined){ data.word1=q.word1; data.word2=q.word2; }
       if(q.sentence!==undefined) data.sentence=q.sentence;
       if(q.passage!==undefined){ data.passage=q.passage; data.question=q.question; }
@@ -1233,6 +1592,7 @@ async function render(){
   if(!state.userNumber){ app.innerHTML = renderLogin(); return; }
   app.innerHTML = `${renderTopbar()}${renderDrawer()}<div class="page" id="page-content"></div>`;
   const r = state.route;
+  state.isOffline = false;
   try{
     if(r.name==='home') await renderHome();
     else if(r.name==='sections') await renderSections();
@@ -1244,6 +1604,10 @@ async function render(){
     else if(r.name==='admin-question-add'){ questionDraftType = null; await renderAdminQuestionAdd(r.params.sectionId, r.params.questionId); }
     else if(r.name==='admin-quick-add') renderAdminQuickAdd();
     else if(r.name==='quiz') renderQuizScreen();
+    if(state.isOffline){
+      const pc = document.getElementById('page-content');
+      if(pc) pc.insertAdjacentHTML('afterbegin', `<div class="offline-banner">${iconDownload()} أنت غير متصل حالياً — تُعرض آخر نسخة محفوظة محلياً</div>`);
+    }
   }catch(e){
     console.error('render error:', e);
     showRenderError(e);
@@ -1274,6 +1638,7 @@ function startQuickAddSection(){ nav('admin-quick-add'); }
   if(s && s.num){
     state.userNumber = s.num; state.isAdmin = s.isAdmin;
     nav('home');
+    flushPendingQueue();
   }else{
     render();
   }
