@@ -418,8 +418,8 @@ async function loadSections(force){
     throw e;
   }
 }
-async function addSection(name){
-  const ref = await db.collection('sections').add({name, createdAt:FieldValue.serverTimestamp()});
+async function addSection(name, number){
+  const ref = await db.collection('sections').add({name, number: number||'', createdAt:FieldValue.serverTimestamp()});
   state.sectionsLoaded=false;
   return ref.id;
 }
@@ -760,6 +760,7 @@ function iconChev(){ return svgIcon('<polyline points="15 18 9 12 15 6"/>'); }
 function iconDownload(){ return svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'); }
 function iconRefresh(){ return svgIcon('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>'); }
 function iconBack(){ return svgIcon('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'); }
+function iconCopy(){ return svgIcon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'); }
 
 /* ================= LOGIN ================= */
 function renderLogin(){
@@ -1225,15 +1226,76 @@ async function renderAdminSections(){
     <div class="section-title">إدارة الأقسام</div>
     <button class="btn btn-primary" style="margin-bottom:16px;" onclick="openAddSectionChoice()">${iconPlus()} إضافة قسم</button>
     ${sections.length===0? emptyState('لا توجد أقسام بعد','ابدأ بإضافة أول قسم'):''}
-    ${sections.map(s=>`
+    ${sections.map((s,idx)=>`
       <div class="list-item" style="cursor:default;">
         <div style="flex:1;cursor:pointer;" onclick="nav('admin-section-edit',{id:'${s.id}'})"><div class="title">${escapeHtml(s.name)}</div></div>
         <div style="display:flex;gap:8px;">
+          <div class="icon-action" onclick="event.stopPropagation();copySectionAsText('${s.id}', ${idx})">${iconCopy()}</div>
           <div class="icon-action" onclick="event.stopPropagation();openEditSectionModal('${s.id}','${escapeHtml(s.name).replace(/'/g,"\\'")}')">${iconEdit()}</div>
           <div class="icon-action" onclick="event.stopPropagation();confirmDeleteSection('${s.id}')">${iconTrash()}</div>
         </div>
       </div>`).join('')}
   `;
+}
+function questionToQuickAddBlock(q){
+  let out = `نوع السؤال: ${QTYPES[q.type].label}\n`;
+  out += `رقم السؤال: ${q.order!==undefined && q.order!==null ? q.order : ''}\n`;
+  if(q.type==='analogy'){
+    out += `المفردة الأولى: ${q.word1||''}\n`;
+    out += `المفردة الثانية: ${q.word2||''}\n`;
+  }else if(q.type==='reading'){
+    out += `النص: ${q.passage||''}\n`;
+    out += `السؤال: ${q.question||''}\n`;
+  }else if(q.type==='contextual_error' || q.type==='sentence_completion'){
+    out += `الجملة: ${q.sentence||''}\n`;
+  }
+  out += `الإجابات:\n`;
+  (q.answers||[]).forEach((a,i)=>{
+    const num = i+1;
+    const isCorrect = i===q.correctIndex;
+    const suffix = isCorrect? ' --- هذه الإجابة الصحيحة':'';
+    if(q.type==='analogy'){
+      out += `${num} المفردة الأولى: ${a.w1||''} المفردة الثانية: ${a.w2||''}${suffix}\n`;
+    }else{
+      out += `${num} ${a}${suffix}\n`;
+    }
+  });
+  return out;
+}
+async function copySectionAsText(sectionId, idx){
+  try{
+    const sec = state.sections.find(s=>s.id===sectionId);
+    if(!sec) return;
+    const number = (sec.number!==undefined && sec.number!==null && sec.number!=='') ? sec.number : (idx+1);
+    toast('جارِ تجهيز النص...');
+    const questions = await getQuestions(sectionId);
+    let text = `عنوان ورقم القسم: ${number} ${sec.name}\n`;
+    questions.forEach(q=>{ text += `\n` + questionToQuickAddBlock(q); });
+    showCopyTextModal('نسخ القسم: '+sec.name, text);
+  }catch(e){
+    console.error(e);
+    toast('تعذّر تجهيز نص القسم');
+  }
+}
+function showCopyTextModal(title, text){
+  const safeId = 'copyTextArea_'+Date.now();
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">${escapeHtml(title)}</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <textarea id="${safeId}" readonly style="min-height:320px;font-size:12.5px;line-height:1.8;" onclick="this.select()">${escapeHtml(text)}</textarea>
+    <button class="btn btn-primary" onclick="copyModalText('${safeId}')">${iconCopy()} نسخ النص</button>
+  `, true);
+}
+async function copyModalText(id){
+  const ta = document.getElementById(id);
+  ta.select();
+  ta.setSelectionRange(0, 999999);
+  try{
+    await navigator.clipboard.writeText(ta.value);
+    toast('تم نسخ النص ✓');
+  }catch(e){
+    try{ document.execCommand('copy'); toast('تم نسخ النص ✓'); }
+    catch(e2){ toast('تعذّر النسخ التلقائي، النص محدَّد — استخدم Ctrl+C'); }
+  }
 }
 function openEditSectionModal(id,name){
   openModal(`
@@ -1570,7 +1632,7 @@ async function saveQuickAdd(){
   if(!quickParsed) return;
   document.getElementById('quickSaveBtn').textContent='جارِ الحفظ...';
   try{
-    const sectionId = await addSection(quickParsed.secTitle);
+    const sectionId = await addSection(quickParsed.secTitle, quickParsed.secNumber);
     for(let i=0;i<quickParsed.questions.length;i++){
       const q = quickParsed.questions[i];
       const data = {correctIndex:q.correctIndex, answers:q.answers, order:q.order};
