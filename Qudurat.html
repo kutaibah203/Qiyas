@@ -501,10 +501,12 @@ async function addQuestion(sectionId,type,data){
 }
 async function updateQuestion(id,type,data){
   await db.collection('questions').doc(id).update({type,...data});
+  if(typeof questionCache!=='undefined') delete questionCache[id];
 }
 async function deleteQuestion(id){
   await db.collection('questions').doc(id).delete();
   await db.collection('users').doc(state.userNumber||'').collection('wrong').doc(id).delete().catch(()=>{});
+  if(typeof questionCache!=='undefined') delete questionCache[id];
 }
 
 async function addAttempt(userNumber, attempt){
