@@ -357,7 +357,7 @@ function parseQuickAddLettered(raw){
 }
 function findOptionMarkers(text){
   // Locates a contiguous run of option letters A,B,C[,D] each followed by ':' or '-'.
-  const regex = /\b([A-D])[:\-]\s*/g;
+  const regex = /\b([A-D])[.:\-]\s*/g;
   const matches = [];
   let m;
   while((m = regex.exec(text))){
@@ -392,7 +392,7 @@ function parseQuickAddInline(raw){
   const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
   let title = '';
   let i = 0;
-  if(lines.length && /^(title|عنوان الاختبار|عنوان)\s*:/i.test(lines[0]) && !/\b[A-D][:\-]/.test(lines[0])){
+  if(lines.length && /^(title|عنوان الاختبار|عنوان)\s*:/i.test(lines[0]) && !/\b[A-D][.:\-]/.test(lines[0])){
     title = lines[0].replace(/^(title|عنوان الاختبار|عنوان)\s*:/i,'').trim();
     i = 1;
   }
@@ -459,7 +459,7 @@ const Data = {
   async updateSection(id, name){ await updateDoc(doc(sectionsCol,id), { name }); },
   async deleteSection(id){
     const tests = await Data.getTests(id);
-    for(const t of tests){ await Data.deleteTest(t.id); }
+    await Promise.all(tests.map(t => Data.deleteTest(t.id)));
     await deleteDoc(doc(sectionsCol,id));
   },
 
@@ -495,12 +495,8 @@ const Data = {
     return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
   },
   async getQuestionsByIds(ids){
-    const out = [];
-    for(const id of ids){
-      const snap = await getDoc(doc(questionsCol,id));
-      if(snap.exists()) out.push({id:snap.id,...snap.data()});
-    }
-    return out;
+    const snaps = await Promise.all(ids.map(id => getDoc(doc(questionsCol,id))));
+    return snaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data()}));
   },
   async addQuestion(testId, sectionId, q){
     const ref = await addDoc(questionsCol, {
@@ -720,9 +716,11 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
 }
 
 /* ============ ROUTER ============ */
+let lastRouteKey = null;
 async function render(){
   const hash = location.hash || '#/login';
   const parts = hash.replace(/^#\//,'').split('/').filter(Boolean);
+  const routeKey = parts.join('/');
 
   // guard: require login for anything besides login/name
   if(parts[0] !== 'login' && parts[0] !== 'name' && !state.user){
@@ -730,6 +728,13 @@ async function render(){
     location.hash = '#/login';
     return;
   }
+
+  // instant feedback: paint a spinner right away when the route actually changes,
+  // so clicks feel responsive even while data is still loading from Firestore.
+  if(routeKey !== lastRouteKey && parts[0]!=='login' && parts[0]!=='name'){
+    app.innerHTML = wrap(renderLoadingScreen(), true);
+  }
+  lastRouteKey = routeKey;
 
   let html = '';
   try{
@@ -865,12 +870,22 @@ async function renderSavedQuestions(){
 }
 
 async function enrichQuestionRefs(items){
+  const snaps = await Promise.all(items.map(it => getDoc(doc(questionsCol, it.questionId))));
+  const questions = snaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data()}));
+  const testIds = [...new Set(questions.map(q=>q.testId).filter(Boolean))];
+  const sectionIds = [...new Set(questions.map(q=>q.sectionId).filter(Boolean))];
+  const [testDocs, sectionDocs] = await Promise.all([
+    Promise.all(testIds.map(id => Data.getTest(id))),
+    Promise.all(sectionIds.map(id => Data.getSection(id))),
+  ]);
+  const testMap = Object.fromEntries(testIds.map((id,i)=>[id, testDocs[i]]));
+  const sectionMap = Object.fromEntries(sectionIds.map((id,i)=>[id, sectionDocs[i]]));
+  const snapById = Object.fromEntries(snaps.filter(s=>s.exists()).map(s=>[s.id, {id:s.id,...s.data()}]));
   const out = [];
   for(const it of items){
-    const qSnap = await getDoc(doc(questionsCol, it.questionId));
-    if(!qSnap.exists()) continue;
-    const q = { id:qSnap.id, ...qSnap.data() };
-    const [test, sec] = await Promise.all([ Data.getTest(q.testId), Data.getSection(q.sectionId) ]);
+    const q = snapById[it.questionId];
+    if(!q) continue;
+    const test = testMap[q.testId], sec = sectionMap[q.sectionId];
     out.push({ ref:it, question:q, testTitle: test?.title||'—', sectionName: sec?.name||'—' });
   }
   return out;
@@ -1126,31 +1141,35 @@ function quizSubmitClicked(){
 async function finalizeQuiz(){
   const quiz = state.quiz;
   const durationSec = Math.round((Date.now()-quiz.quizStartedAt)/1000);
-  const answersArr = [];
-  for(const q of quiz.questions){
+  const answersArr = quiz.questions.map(q => {
     const selectedIndex = quiz.answers[q.id] !== undefined ? quiz.answers[q.id] : -1;
     const isCorrect = selectedIndex === q.correctIndex;
     const timeSpentSec = Math.round((quiz.timeSpent[q.id]||0)/1000);
-    answersArr.push({
+    return {
       questionId:q.id, text:q.text, options:q.options, correctIndex:q.correctIndex,
       selectedIndex, isCorrect, timeSpentSec, saved: quiz.savedSet.has(q.id), reviewed: quiz.reviewSet.has(q.id)
-    });
-    if(isCorrect) await Data.removeWrong(state.user.id, q.id);
-    else await Data.upsertWrong(state.user.id, q);
-  }
-  const score = answersArr.filter(a=>a.isCorrect).length;
-  const attemptId = await Data.addAttempt({
-    userId: state.user.id,
-    scopeType: quiz.scope,
-    sectionId: quiz.sectionId || null,
-    sectionName: quiz.sectionName,
-    testId: quiz.testId || null,
-    testTitle: quiz.testTitle,
-    startedAt: quiz.startedAtWall,
-    finishedAt: new Date(),
-    durationSec, score, total: answersArr.length,
-    answers: answersArr,
+    };
   });
+  const wrongWritesPromise = Promise.all(quiz.questions.map(q => {
+    const a = answersArr.find(x=>x.questionId===q.id);
+    return a.isCorrect ? Data.removeWrong(state.user.id, q.id) : Data.upsertWrong(state.user.id, q);
+  }));
+  const score = answersArr.filter(a=>a.isCorrect).length;
+  const [attemptId] = await Promise.all([
+    Data.addAttempt({
+      userId: state.user.id,
+      scopeType: quiz.scope,
+      sectionId: quiz.sectionId || null,
+      sectionName: quiz.sectionName,
+      testId: quiz.testId || null,
+      testTitle: quiz.testTitle,
+      startedAt: quiz.startedAtWall,
+      finishedAt: new Date(),
+      durationSec, score, total: answersArr.length,
+      answers: answersArr,
+    }),
+    wrongWritesPromise,
+  ]);
   state.quiz = null; state.modal = null;
   navigate(`#/user/result/${attemptId}`);
 }
@@ -1232,8 +1251,8 @@ async function renderAdminHome(){
   const [sections, questionsSnap, attemptsCount, users] = await Promise.all([
     Data.getSections(), getDocs(questionsCol), Data.getAllAttemptsCount(), Data.getAllUsers()
   ]);
-  let testsTotal = 0;
-  for(const s of sections){ testsTotal += (await Data.getTests(s.id)).length; }
+  const testsPerSection = await Promise.all(sections.map(s => Data.getTests(s.id)));
+  const testsTotal = testsPerSection.reduce((sum,arr) => sum + arr.length, 0);
   return `
   <h1 class="page-title">Admin Overview</h1>
   <p class="page-sub">A quick look at everything you've built.</p>
@@ -1408,10 +1427,8 @@ async function handleQuickAddSubmit(){
   if(!parsed.questions.length){ alert('No questions detected. Check the format and try again.'); return; }
   const title = parsed.title || 'Untitled Test';
   const testId = await Data.addTest(m.sectionId, title);
-  for(const q of parsed.questions){
-    if(q.correctIndex < 0 || q.options.length < 2) continue;
-    await Data.addQuestion(testId, m.sectionId, q);
-  }
+  const valid = parsed.questions.filter(q => q.correctIndex >= 0 && q.options.length >= 2);
+  await Promise.all(valid.map(q => Data.addQuestion(testId, m.sectionId, q)));
   state.modal = null;
   navigate(`#/admin/sections/${m.sectionId}/tests/${testId}`);
 }
