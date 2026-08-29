@@ -315,6 +315,20 @@ async function doClearLocalData(){
   toast('تم حذف البيانات المحلية');
   render();
 }
+function startOfflineQuiz(sectionId, sectionName){
+  const blob = getOfflineBlob();
+  if(!blob){ toast('لا توجد بيانات محفوظة بعد'); return; }
+  let qs, secName;
+  if(sectionId==='all'){
+    qs = sortAllBySectionThenOrder(blob.questions||[], blob.sections||[]);
+    secName = 'كل الأقسام (بدون اتصال)';
+  }else{
+    qs = sortByOrder((blob.questions||[]).filter(q=>q.sectionId===sectionId));
+    secName = sectionName || ((blob.sections||[]).find(s=>s.id===sectionId)||{}).name || '';
+  }
+  if(!qs || qs.length===0){ toast('لا توجد أسئلة محفوظة لهذا الاختيار'); return; }
+  beginQuizSession(qs, secName, sectionId, true);
+}
 function renderOfflineSections(){
   const cont = document.getElementById('page-content');
   const blob = getOfflineBlob();
@@ -325,11 +339,14 @@ function renderOfflineSections(){
   cont.innerHTML = `
     <div class="section-title">الأقسام المحفوظة (بدون اتصال)</div>
     <div class="small-note" style="margin-bottom:14px;">آخر تحديث: ${blob.syncedAt? new Date(blob.syncedAt).toLocaleString('ar-SA'):'-'}</div>
+    <button class="btn btn-outline" style="margin-bottom:16px;" onclick="startOfflineQuiz('all')">${iconGrid()} اختبر جميع الأقسام</button>
     ${blob.sections.map(s=>{
       const count = (blob.questions||[]).filter(q=>q.sectionId===s.id).length;
-      return `<div class="list-item" onclick="nav('offline-section-view',{id:'${s.id}',name:'${escapeHtml(s.name).replace(/'/g,"\\'")}'})">
-        <div><div class="title">${escapeHtml(s.name)}</div><div class="sub">${count} سؤال</div></div>
-        <div>${iconChev()}</div>
+      return `<div class="list-item" style="cursor:default;">
+        <div style="flex:1;cursor:pointer;" onclick="nav('offline-section-view',{id:'${s.id}',name:'${escapeHtml(s.name).replace(/'/g,"\\'")}'})">
+          <div class="title">${escapeHtml(s.name)}</div><div class="sub">${count} سؤال</div>
+        </div>
+        <div class="icon-action" title="ابدأ اختبار القسم" onclick="startOfflineQuiz('${s.id}','${escapeHtml(s.name).replace(/'/g,"\\'")}')">${iconGrid()}</div>
       </div>`;
     }).join('')}
   `;
@@ -357,6 +374,7 @@ function renderOfflineSectionView(sectionId, sectionName){
   const questions = sortByOrder((blob.questions||[]).filter(q=>q.sectionId===sectionId));
   cont.innerHTML = `
     <div class="section-title">${escapeHtml(sec? sec.name : (sectionName||'قسم'))}</div>
+    ${questions.length>0? `<button class="btn btn-primary" style="margin-bottom:16px;" onclick="startOfflineQuiz('${sectionId}','${escapeHtml((sec?sec.name:sectionName)||'').replace(/'/g,"\\'")}')">ابدأ اختبار هذا القسم</button>`:''}
     ${questions.length===0? emptyState('لا توجد أسئلة محفوظة لهذا القسم',''):''}
     ${questions.map(q=>`
       <div class="q-card" style="margin-bottom:14px;">
@@ -828,10 +846,11 @@ async function startQuiz(sectionId){
     showRenderError(e);
   }
 }
-function beginQuizSession(questions, sectionName, sectionId){
+function beginQuizSession(questions, sectionName, sectionId, isOfflineQuiz){
   if(state.route && state.route.name && state.route.name!=='quiz'){ state.history.push({name:state.route.name, params:state.route.params}); }
   state.quiz = {
     sectionId, sectionName,
+    isOfflineQuiz: !!isOfflineQuiz,
     questions, index:0,
     answers: questions.map(q=>({questionId:q.id, sectionId:q.sectionId, type:q.type, selectedIndex:null, saved:false, reviewed:false, timeSpentSeconds:0})),
     startedAt: Date.now(),
@@ -844,10 +863,14 @@ function beginQuizSession(questions, sectionName, sectionId){
   preloadSavedFlags();
 }
 async function preloadSavedFlags(){
-  const snap = await db.collection('users').doc(state.userNumber).collection('saved').get();
-  const set = new Set(snap.docs.map(d=>d.id));
-  state.quiz.savedFlags = {};
-  state.quiz.questions.forEach(q=>{ state.quiz.savedFlags[q.id]=set.has(q.id); });
+  state.quiz.savedFlags = state.quiz.savedFlags || {};
+  try{
+    const snap = await db.collection('users').doc(state.userNumber).collection('saved').get();
+    const set = new Set(snap.docs.map(d=>d.id));
+    state.quiz.questions.forEach(q=>{ state.quiz.savedFlags[q.id]=set.has(q.id); });
+  }catch(e){
+    console.error('preloadSavedFlags failed (offline?)', e);
+  }
   renderQuizScreen();
 }
 function currentQ(){ return state.quiz.questions[state.quiz.index]; }
@@ -935,7 +958,7 @@ function toggleSaveCurrent(){
   const q = currentQ();
   const nv = !state.quiz.savedFlags[q.id];
   state.quiz.savedFlags[q.id]=nv;
-  toggleSaved(state.userNumber, q, nv);
+  toggleSaved(state.userNumber, q, nv).catch(e=>console.error('save failed (offline?)', e));
   toast(nv?'تم حفظ السؤال':'تم إلغاء الحفظ');
   renderQuizScreen();
 }
@@ -991,22 +1014,33 @@ async function submitQuiz(){
     startedAtClient: quiz.startedAt, endedAtClient: Date.now(),
     answers: quiz.answers
   };
-  const attemptId = await addAttempt(state.userNumber, attempt);
-  for(let i=0;i<quiz.answers.length;i++){
-    const ans = quiz.answers[i];
-    if(ans.isCorrect) await clearWrong(state.userNumber, ans.questionId);
-    else await setWrong(state.userNumber, {id:ans.questionId, sectionId:ans.sectionId, type:ans.type});
+  let attemptId = null;
+  let saveFailed = false;
+  try{
+    attemptId = await addAttempt(state.userNumber, attempt);
+    for(let i=0;i<quiz.answers.length;i++){
+      const ans = quiz.answers[i];
+      if(ans.isCorrect) await clearWrong(state.userNumber, ans.questionId);
+      else await setWrong(state.userNumber, {id:ans.questionId, sectionId:ans.sectionId, type:ans.type});
+    }
+  }catch(e){
+    console.error('submitQuiz save failed (offline?)', e);
+    saveFailed = true;
+    attemptId = 'unsaved_'+Date.now();
   }
-  showResultScreen(attemptId, attempt, quiz);
+  showResultScreen(attemptId, attempt, quiz, saveFailed);
 }
-function showResultScreen(attemptId, attempt, quiz){
+function showResultScreen(attemptId, attempt, quiz, saveFailed){
   state.route = {name:'result', params:{}};
   const wrongItems = attempt.answers.map((a,i)=>({a,q:quiz.questions[i]})).filter(x=>!x.a.isCorrect);
   const pct = Math.round((attempt.score/attempt.total)*100);
   const cont = document.getElementById('app');
+  const isOffline = !!quiz.isOfflineQuiz;
+  const backRoute = isOffline? 'offline-sections':'sections';
   cont.innerHTML = `
     <div class="topbar"><button class="icon-btn" onclick="goBack()">${iconBack()}</button><div class="topbar-title">نتيجة الاختبار</div><div style="width:40px;"></div></div>
     <div class="page">
+      ${saveFailed? `<div class="offline-banner" style="display:flex;align-items:center;gap:8px;background:rgba(226,99,122,.1);border:1px solid var(--danger);color:var(--danger);padding:10px 14px;border-radius:12px;font-size:12.5px;margin-bottom:14px;">⚠️ تعذّر حفظ هذه النتيجة بسجلّك (لا يوجد اتصال بالإنترنت). النتيجة معروضة هنا فقط.</div>`:''}
       <div style="text-align:center;margin:20px 0 30px;">
         <div style="font-size:46px;font-weight:900;font-family:'Tajawal';color:var(--accent);">${attempt.score}/${attempt.total}</div>
         <div class="sub" style="color:var(--text-dim);margin-top:6px;">نسبة الإجابات الصحيحة ${pct}%</div>
@@ -1024,10 +1058,10 @@ function showResultScreen(attemptId, attempt, quiz){
         </div>
       </div>`:`<div class="empty"><div class="ic">🎉</div>ممتاز! لا يوجد أخطاء</div>`}
       <div class="btn-row" style="margin-top:16px;">
-        <button class="btn" onclick="restartSameSection('${quiz.sectionId}')">إعادة اختبار القسم</button>
-        <button class="btn btn-primary" onclick="nextSection('${quiz.sectionId}')">القسم التالي</button>
+        <button class="btn" onclick="${isOffline?`restartOfflineSection('${quiz.sectionId}','${escapeHtml(quiz.sectionName||'').replace(/'/g,"\\'")}')`:`restartSameSection('${quiz.sectionId}')`}">إعادة اختبار القسم</button>
+        <button class="btn btn-primary" onclick="${isOffline?`nextOfflineSection('${quiz.sectionId}')`:`nextSection('${quiz.sectionId}')`}">القسم التالي</button>
       </div>
-      <button class="btn btn-outline" style="margin-top:10px;" onclick="nav('sections')">رجوع للأقسام</button>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="nav('${backRoute}')">رجوع للأقسام</button>
     </div>`;
 }
 function restartSameSection(sectionId){ startQuiz(sectionId); }
@@ -1037,6 +1071,15 @@ async function nextSection(currentSectionId){
   if(idx>=0 && idx<state.sections.length-1){ startQuiz(state.sections[idx+1].id); }
   else if(state.sections.length>0){ startQuiz(state.sections[0].id); }
   else nav('sections');
+}
+function restartOfflineSection(sectionId, sectionName){ startOfflineQuiz(sectionId, sectionName); }
+function nextOfflineSection(currentSectionId){
+  const blob = getOfflineBlob();
+  const sections = (blob && blob.sections) || [];
+  const idx = sections.findIndex(s=>s.id===currentSectionId);
+  if(idx>=0 && idx<sections.length-1){ startOfflineQuiz(sections[idx+1].id, sections[idx+1].name); }
+  else if(sections.length>0){ startOfflineQuiz(sections[0].id, sections[0].name); }
+  else nav('offline-sections');
 }
 
 /* ================= shared data caches ================= */
