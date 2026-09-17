@@ -1,1565 +1,1399 @@
+```html
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>STEP · Exam Trainer</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منصة STEP - ستيب التعليمية</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-firestore.js"></script>
 <style>
 :root{
-  --bg:#0F1620;
-  --surface:#172233;
-  --surface-2:#1E2C40;
-  --border:#2A3B52;
-  --border-soft:#22314A;
-  --text:#E8ECEF;
-  --text-muted:#8FA3B8;
-  --text-faint:#5E7288;
-  --teal:#3FA796;
-  --teal-dim:#2C7A6D;
-  --amber:#F2A65A;
-  --red:#E15A4D;
-  --green:#4CAF7D;
-  --radius:14px;
-  --radius-sm:9px;
-  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --bg:#12172B; --bg-2:#0D1122;
+  --surface:#1B2140; --surface-2:#232A4D; --surface-3:#2B3260;
+  --text:#EDEAE0; --text-dim:#A7ACC8; --text-faint:#6B7196;
+  --accent:#E8B44C; --accent-dim:#3A3221;
+  --accent2:#4FA8A0;
+  --danger:#E2637A; --danger-dim:#3A2530;
+  --success:#6FCF97; --success-dim:#1E3A2C;
+  --border:rgba(237,234,224,.12);
+  --radius:16px; --radius-sm:10px;
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
 body{
-  background:radial-gradient(1200px 700px at 50% -10%, #14202E 0%, #0F1620 55%, #0B111A 100%);
+  background:radial-gradient(circle at 20% -10%, #1B2140 0%, var(--bg) 45%, var(--bg-2) 100%);
+  background-attachment:fixed;
   color:var(--text);
-  font-family:'Inter',system-ui,sans-serif;
+  font-family:'IBM Plex Sans Arabic','Tajawal',sans-serif;
   min-height:100vh;
-  -webkit-font-smoothing:antialiased;
+  user-select:none;
 }
-h1,h2,h3,.display{ font-family:'Space Grotesk',sans-serif; letter-spacing:-0.01em; }
-.mono{ font-family:'JetBrains Mono',monospace; }
-a{color:inherit;}
-button{ font-family:inherit; cursor:pointer; }
-::selection{ background:var(--teal); color:#08110E; }
+h1,h2,h3,.display{font-family:'Tajawal',sans-serif;}
+button, input, select, textarea{font-family:inherit;}
+button{cursor:pointer;}
+::selection{background:var(--accent);color:#12172B;}
+#app{max-width:680px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:40px;}
 
-#app{ max-width:960px; margin:0 auto; padding:0 20px 80px; min-height:100vh; }
-.center-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+.topbar{position:sticky;top:0;z-index:20;height:60px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;background:rgba(18,23,43,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);}
+.icon-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);display:flex;align-items:center;justify-content:center;transition:.15s;}
+.icon-btn:hover{background:var(--surface-3);border-color:var(--accent);}
+.topbar-title{font-weight:800;color:var(--accent);font-size:16px;letter-spacing:.5px;font-family:'Tajawal';}
 
-/* ---- Step motif ---- */
-.step-mark{ display:flex; align-items:flex-end; gap:4px; height:26px; }
-.step-mark i{ display:block; width:7px; background:var(--teal); border-radius:2px; opacity:.35; }
-.step-mark i:nth-child(1){ height:8px; }
-.step-mark i:nth-child(2){ height:14px; opacity:.6; }
-.step-mark i:nth-child(3){ height:20px; opacity:.85; }
-.step-mark i:nth-child(4){ height:26px; opacity:1; }
+.overlay{position:fixed;inset:0;background:rgba(6,8,16,.6);z-index:29;opacity:0;pointer-events:none;transition:.25s;}
+.overlay.open{opacity:1;pointer-events:auto;}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:78%;max-width:320px;background:var(--surface);z-index:30;
+  transform:translateX(100%);transition:.3s cubic-bezier(.4,0,.2,1);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;padding:20px 0;}
+.drawer.open{transform:translateX(0);}
+.drawer-head{padding:0 20px 16px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+.drawer-head .num{font-family:'Tajawal';font-weight:800;font-size:22px;color:var(--accent);}
+.drawer-head .tag{color:var(--text-faint);font-size:12px;}
+.drawer-item{display:flex;align-items:center;gap:12px;padding:14px 20px;color:var(--text);text-decoration:none;
+  border-right:3px solid transparent;transition:.15s;font-size:15px;cursor:pointer;}
+.drawer-item:hover,.drawer-item.active{background:var(--surface-2);border-right-color:var(--accent);}
+.drawer-item .ic{width:20px;text-align:center;color:var(--accent2);}
 
-.brand{ display:flex; align-items:center; gap:10px; }
-.brand .wordmark{ font-size:22px; font-weight:700; letter-spacing:.02em; }
-.brand .wordmark span{ color:var(--teal); }
+.page{padding:20px 16px 12px;animation:fadein .25s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.section-title{font-size:22px;font-weight:800;margin:4px 0 18px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;}
+.stat-card:before{content:'';position:absolute;top:-20px;left:-20px;width:70px;height:70px;background:var(--accent);opacity:.08;border-radius:50%;}
+.stat-num{font-family:'Tajawal';font-size:28px;font-weight:800;color:var(--accent);}
+.stat-label{font-size:12.5px;color:var(--text-dim);margin-top:4px;}
 
-/* ---- Top bar ---- */
-.topbar{
-  position:sticky; top:0; z-index:20;
-  display:flex; align-items:center; justify-content:space-between;
-  padding:16px 0; margin-bottom:10px;
-  background:linear-gradient(var(--bg) 70%, transparent);
-  backdrop-filter:blur(6px);
-}
-.topbar .left{ display:flex; align-items:center; gap:8px; }
-.icon-btn{
-  width:40px; height:40px; border-radius:10px; border:1px solid var(--border);
-  background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center;
-  transition:.15s;
-}
-.icon-btn:hover{ background:var(--surface-2); border-color:var(--teal-dim); }
-.icon-btn svg{ width:18px; height:18px; }
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:12px;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-weight:600;font-size:14.5px;transition:.15s;width:100%;}
+.btn:hover{background:var(--surface-3);}
+.btn-primary{background:var(--accent);color:#1a1408;border-color:var(--accent);}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-outline{background:transparent;border:1px solid var(--accent2);color:var(--accent2);}
+.btn-danger{background:transparent;border:1px solid var(--danger);color:var(--danger);}
+.btn-row{display:flex;gap:10px;}
+.btn-sm{width:auto;padding:8px 14px;font-size:13px;}
 
-/* ---- Cards / layout ---- */
-.card{
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:20px; margin-bottom:14px;
-}
-.card:hover.clickable{ border-color:var(--teal-dim); }
-.clickable{ cursor:pointer; transition:.15s; }
-.clickable:hover{ transform:translateY(-1px); }
-.grid{ display:grid; gap:14px; }
-.grid-2{ grid-template-columns:repeat(2,1fr); }
-.grid-3{ grid-template-columns:repeat(3,1fr); }
-@media (max-width:640px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+.list-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:10px;transition:.15s;cursor:pointer;position:relative;}
+.list-item:hover{border-color:var(--accent2);}
+.list-item.dragging{opacity:0.4;border-style:dashed;border-color:var(--accent);}
+.list-item.drag-over{border-color:var(--accent);background:var(--surface-2);transform:scale(1.01);}
 
-.stat{
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:18px;
-}
-.stat .num{ font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:600; color:var(--amber); }
-.stat .label{ color:var(--text-muted); font-size:13px; margin-top:4px; }
+.drag-handle{cursor:grab;padding:6px 8px;margin-left:4px;color:var(--text-faint);display:flex;align-items:center;justify-content:center;touch-action:none;}
+.drag-handle:active{cursor:grabbing;color:var(--accent);}
 
-.page-title{ font-size:26px; font-weight:700; margin:6px 0 4px; }
-.page-sub{ color:var(--text-muted); font-size:14px; margin-bottom:20px; }
+.list-item .title{font-weight:700;font-size:15.5px;}
+.list-item .sub{font-size:12px;color:var(--text-faint);margin-top:3px;}
+.chip{font-size:11px;background:var(--surface-3);color:var(--text-dim);padding:3px 9px;border-radius:20px;}
+.chip-accent{background:var(--accent-dim);color:var(--accent);}
+.icon-action{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;color:var(--text-dim);flex-shrink:0;}
+.icon-action:hover{border-color:var(--accent);color:var(--accent);}
+.icon-action.danger:hover{border-color:var(--danger);color:var(--danger);}
 
-.btn{
-  display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  padding:11px 18px; border-radius:10px; border:1px solid var(--border);
-  background:var(--surface-2); color:var(--text); font-weight:600; font-size:14px;
-  transition:.15s;
-}
-.btn:hover{ border-color:var(--teal-dim); }
-.btn-primary{ background:var(--teal); border-color:var(--teal); color:#062420; }
-.btn-primary:hover{ background:#49bdaa; }
-.btn-amber{ background:var(--amber); border-color:var(--amber); color:#3A1F02; }
-.btn-danger{ background:transparent; border-color:var(--red); color:var(--red); }
-.btn-danger:hover{ background:rgba(225,90,77,.1); }
-.btn-ghost{ background:transparent; border-color:var(--border); }
-.btn-block{ width:100%; }
-.btn-sm{ padding:7px 12px; font-size:13px; border-radius:8px; }
-.btn[disabled]{ opacity:.4; cursor:not-allowed; }
+input[type=text],input[type=number],textarea,select{
+  width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-2);
+  color:var(--text);font-family:inherit;font-size:14.5px;margin-bottom:12px;}
+textarea{resize:vertical;min-height:90px;}
+label{display:block;font-size:13px;color:var(--text-dim);margin-bottom:6px;font-weight:600;}
 
-input[type=text],input[type=tel],input[type=number],textarea{
-  width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
-  padding:12px 14px; border-radius:10px; font-size:15px; font-family:inherit; outline:none;
-}
-input:focus,textarea:focus{ border-color:var(--teal); }
-textarea{ resize:vertical; min-height:120px; font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.6; }
-label{ display:block; font-size:13px; color:var(--text-muted); margin-bottom:6px; font-weight:600; }
-.field{ margin-bottom:16px; }
+.answer{display:flex;align-items:center;gap:12px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);padding:13px 14px;margin-bottom:10px;transition:.15s;cursor:pointer;}
+.answer:hover{border-color:var(--accent2);}
+.answer.selected{border-color:var(--accent);background:var(--accent-dim);}
+.answer .letter{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--text-faint);display:flex;
+  align-items:center;justify-content:center;font-size:12.5px;font-weight:700;flex-shrink:0;color:var(--text-dim);}
+.answer.selected .letter{background:var(--accent);border-color:var(--accent);color:#1a1408;}
+.answer.correct{border-color:var(--success);background:var(--success-dim);}
+.answer.correct .letter{background:var(--success);border-color:var(--success);color:#0c2016;}
+.answer.wrong{border-color:var(--danger);background:var(--danger-dim);}
+.answer.wrong .letter{background:var(--danger);border-color:var(--danger);color:#2c0f16;}
 
-.row-between{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.muted{ color:var(--text-muted); }
-.faint{ color:var(--text-faint); }
-.badge{
-  display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
-  padding:3px 9px; border-radius:99px; text-transform:uppercase; letter-spacing:.04em;
-}
-.badge-teal{ background:rgba(63,167,150,.15); color:var(--teal); }
-.badge-amber{ background:rgba(242,166,90,.15); color:var(--amber); }
-.badge-red{ background:rgba(225,90,77,.15); color:var(--red); }
-.badge-green{ background:rgba(76,175,125,.15); color:var(--green); }
+.answer-edit-item{display:flex;align-items:center;gap:8px;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:10px;padding:8px 10px;margin-bottom:8px;}
+.answer-edit-item.correct-choice{border-color:var(--success);background:rgba(111,207,151,0.08);}
 
-.empty{ text-align:center; padding:50px 20px; color:var(--text-muted); }
-.empty .step-mark{ margin:0 auto 14px; opacity:.5; }
+.modal-overlay{position:fixed;inset:0;background:rgba(6,8,16,.75);z-index:50;display:flex;align-items:flex-end;justify-content:center;}
+.modal-overlay.center{align-items:center;padding:16px;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;max-width:640px;width:100%;
+  max-height:85vh;overflow-y:auto;padding:20px;}
+.modal-overlay.center .modal{border-radius:var(--radius);}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.modal-close{width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;color:var(--text-dim);cursor:pointer;}
 
-/* ---- Slide menu ---- */
-.menu-overlay{
-  position:fixed; inset:0; background:rgba(5,9,14,.6); z-index:50;
-  display:flex; justify-content:flex-end;
-  animation:fadeIn .15s ease;
-}
-@keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
-.menu-panel{
-  width:300px; max-width:85vw; height:100%; background:var(--surface); border-left:1px solid var(--border);
-  padding:22px; display:flex; flex-direction:column; gap:6px;
-  animation:slideIn .18s ease;
-}
-@keyframes slideIn{ from{ transform:translateX(30px); opacity:0;} to{ transform:translateX(0); opacity:1;} }
-.menu-item{
-  display:flex; align-items:center; gap:12px; padding:13px 12px; border-radius:10px;
-  color:var(--text); font-weight:600; font-size:14.5px; border:1px solid transparent;
-}
-.menu-item:hover{ background:var(--surface-2); border-color:var(--border); }
-.menu-item svg{ width:18px; height:18px; color:var(--teal); flex-shrink:0; }
-.menu-foot{ margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+.empty{text-align:center;padding:40px 20px;color:var(--text-faint);}
+.divider{height:1px;background:var(--border);margin:18px 0;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface-3);border:1px solid var(--accent);
+  color:var(--text);padding:12px 20px;border-radius:12px;font-size:13.5px;z-index:60;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{opacity:1;bottom:34px;}
+.loader{text-align:center;padding:60px 20px;color:var(--text-faint);}
 
-/* ---- Modal ---- */
-.modal-overlay{
-  position:fixed; inset:0; background:rgba(5,9,14,.65); z-index:60;
-  display:flex; align-items:center; justify-content:center; padding:20px;
-}
-.modal{
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  width:100%; max-width:520px; max-height:88vh; overflow-y:auto; padding:24px;
-  box-shadow:var(--shadow);
-}
-.modal h3{ margin-top:0; }
-.modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+.switch{position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch-slider{position:absolute;cursor:pointer;inset:0;background:var(--surface-3);border-radius:24px;transition:.2s;}
+.switch-slider:before{content:'';position:absolute;height:18px;width:18px;right:3px;bottom:3px;background:var(--text-dim);border-radius:50%;transition:.2s;}
+.switch input:checked + .switch-slider{background:var(--accent);}
+.switch input:checked + .switch-slider:before{transform:translateX(-18px);background:#1a1408;}
 
-/* ---- Question ---- */
-.q-text{ font-size:17px; font-weight:600; line-height:1.5; margin-bottom:18px; }
-.option{
-  display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:10px;
-  border:1px solid var(--border); background:var(--surface-2); margin-bottom:10px; transition:.12s;
-}
-.option .letter{
-  width:26px; height:26px; border-radius:7px; background:var(--surface); border:1px solid var(--border);
-  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--text-muted); flex-shrink:0;
-}
-.option.selected{ border-color:var(--teal); background:rgba(63,167,150,.1); }
-.option.selected .letter{ background:var(--teal); color:#062420; border-color:var(--teal); }
-.option.correct{ border-color:var(--green); background:rgba(76,175,125,.12); }
-.option.correct .letter{ background:var(--green); color:#06210f; border-color:var(--green); }
-.option.wrong{ border-color:var(--red); background:rgba(225,90,77,.12); }
-.option.wrong .letter{ background:var(--red); color:#2a0906; border-color:var(--red); }
-
-.qpalette{ display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
-.qdot{
-  width:34px; height:34px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2);
-  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--text-muted);
-  font-family:'JetBrains Mono',monospace; position:relative;
-}
-.qdot.current{ border-color:var(--teal); color:var(--teal); }
-.qdot.answered{ background:rgba(63,167,150,.18); color:var(--teal); border-color:var(--teal-dim); }
-.qdot.reviewed:after{
-  content:''; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--amber);
-}
-
-.quiz-actions{ display:flex; gap:8px; }
-.quiz-actions .icon-btn.active{ border-color:var(--amber); color:var(--amber); }
-.quiz-actions .icon-btn.active-save{ border-color:var(--teal); color:var(--teal); }
-
-.progress-track{ height:6px; border-radius:99px; background:var(--surface-2); overflow:hidden; margin-bottom:22px; }
-.progress-fill{ height:100%; background:linear-gradient(90deg,var(--teal),var(--amber)); }
-
-.timer{
-  font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-muted);
-  display:flex; align-items:center; gap:6px;
-}
-
-.login-wrap{ width:100%; max-width:380px; }
-.login-card{ background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:34px 28px; box-shadow:var(--shadow); }
-.login-hint{ font-size:12.5px; color:var(--text-faint); margin-top:14px; line-height:1.6; }
-
-.spinner{ width:22px; height:22px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--teal); animation:spin .7s linear infinite; margin:0 auto; }
-@keyframes spin{ to{ transform:rotate(360deg); } }
-.loading-block{ padding:60px 0; text-align:center; color:var(--text-muted); }
-
-hr.sep{ border:none; border-top:1px solid var(--border); margin:20px 0; }
-
-table.simple{ width:100%; border-collapse:collapse; }
-table.simple th{ text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); padding:8px 10px; border-bottom:1px solid var(--border); }
-table.simple td{ padding:12px 10px; border-bottom:1px solid var(--border-soft); font-size:14px; }
-table.simple tr:last-child td{ border-bottom:none; }
-
-.review-note{
-  background:rgba(242,166,90,.1); border:1px solid rgba(242,166,90,.35); color:var(--amber);
-  padding:12px 14px; border-radius:10px; font-size:13.5px; margin-bottom:16px;
-}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.q-text{font-size:17px;line-height:1.9;font-weight:600;margin-bottom:10px;}
+.q-passage{background:var(--surface-2);border-radius:12px;padding:14px;margin-bottom:14px;font-size:14px;line-height:1.8;color:var(--text-dim);border:1px solid var(--border);}
+.q-tag{color:var(--accent);font-weight:700;}
 </style>
 </head>
 <body>
-<div id="app">
-  <div class="center-screen"><div class="spinner"></div></div>
-</div>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
 
-<script type="module">
-/* ============ FIREBASE ============ */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc,
-  updateDoc, deleteDoc, query, where, serverTimestamp, writeBatch
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
+<script>
 const firebaseConfig = {
-  apiKey: "AIzaSyBYGlF427yAkry6yX-MqXGJbS3OE4GGrAw",
-  authDomain: "step-34655.firebaseapp.com",
-  projectId: "step-34655",
-  storageBucket: "step-34655.firebasestorage.app",
-  messagingSenderId: "503122600864",
-  appId: "1:503122600864:web:e533c977a96b7b8adcfac5"
+  apiKey: "AIzaSyBbZtSY_IIyH0cXsWX3lbyIN4UwLD_5j04",
+  authDomain: "qudurat-2da37.firebaseapp.com",
+  projectId: "qudurat-2da37",
+  storageBucket: "qudurat-2da37.firebasestorage.app",
+  messagingSenderId: "565850407112",
+  appId: "1:565850407112:web:94f1b6b5edf501c675e5fd"
 };
-const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const FieldValue = firebase.firestore.FieldValue;
 
-const usersCol = collection(db,'users');
-const sectionsCol = collection(db,'sections');
-const testsCol = collection(db,'tests');
-const questionsCol = collection(db,'questions');
-const attemptsCol = collection(db,'attempts');
-const savedCol = collection(db,'saved');
-const wrongCol = collection(db,'wrong');
+const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-const ADMIN_NUMBER = '731';
-
-/* ============ ICONS ============ */
-const ICON = {
-  back:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>`,
-  menu:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`,
-  close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`,
-  trash:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg>`,
-  edit:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
-  bookmark:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z"/></svg>`,
-  bookmarkFilled:`<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z"/></svg>`,
-  review:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.65 6.35A8 8 0 106.35 17.65 8 8 0 0017.65 6.35zM12 8v4l3 2"/></svg>`,
-  reviewActive:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/></svg>`,
-  clock:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2"/></svg>`,
-  section:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15z"/></svg>`,
-  saved:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z"/></svg>`,
-  history:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5M3.05 13a9 9 0 106.36-9.36M12 7v5l4 2"/></svg>`,
-  wrong:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>`,
-  users:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>`,
-  logout:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>`,
-  plus:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`,
-  check:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`,
+let state = {
+  userNumber: null,
+  isAdmin: false,
+  sections: [],
+  sectionsLoaded: false,
+  drawerOpen: false,
+  route: { name: 'login', params: {} },
+  history: [],
+  quiz: null,
+  draggedItemIndex: null,
+  activeDragType: null // 'test' | 'question' | 'answer'
 };
 
-/* ============ HELPERS ============ */
-function esc(s){ return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function fmtDuration(totalSec){
-  totalSec = Math.max(0, Math.round(totalSec||0));
-  const h = Math.floor(totalSec/3600), m = Math.floor((totalSec%3600)/60), s = totalSec%60;
-  if(h>0) return `${h}h ${m}m ${s}s`;
-  if(m>0) return `${m}m ${s}s`;
-  return `${s}s`;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
-function tsToDate(ts){
-  if(!ts) return null;
-  if(ts.toDate) return ts.toDate();
-  if(ts.seconds) return new Date(ts.seconds*1000);
-  if(ts instanceof Date) return ts;
-  return new Date(ts);
-}
-function fmtDateTime(ts){
-  const d = tsToDate(ts);
-  if(!d) return '—';
-  return d.toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
-}
-function fmtTimeRange(startTs, endTs){
-  const s = tsToDate(startTs), e = tsToDate(endTs);
-  if(!s) return '—';
-  const opts = { hour:'numeric', minute:'2-digit' };
-  const dateStr = s.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
-  const startStr = s.toLocaleTimeString('en-US', opts);
-  const endStr = e ? e.toLocaleTimeString('en-US', opts) : startStr;
-  return `${dateStr} · ${startStr} – ${endStr}`;
-}
-function sortByCreatedAt(arr, dir='asc'){
-  return arr.sort((a,b)=>{
-    const da = a.createdAt ? tsToDate(a.createdAt).getTime() : 0;
-    const db_ = b.createdAt ? tsToDate(b.createdAt).getTime() : 0;
-    return dir==='asc' ? da-db_ : db_-da;
-  });
-}
-function uid(){ return Math.random().toString(36).slice(2,10); }
-function letterOf(i){ return ['A','B','C','D'][i]; }
 
-function parseQuickAddLettered(raw){
-  // Format: "Q: text" then separate lines "A) opt" "B) opt" "C) opt" "D) opt", correct marked with trailing *
-  const lines = raw.split('\n');
-  let title = '';
-  const questions = [];
-  let current = null;
-  for(let line of lines){
-    line = line.trim();
-    if(!line) continue;
-    if(/^(title|عنوان الاختبار|عنوان)\s*:/i.test(line)){
-      title = line.replace(/^(title|عنوان الاختبار|عنوان)\s*:/i,'').trim();
-    } else if(/^q\s*\d*:/i.test(line)){
-      if(current && current.text && current.options.length>=2) questions.push(current);
-      current = { text: line.replace(/^q\s*\d*:/i,'').trim(), options: [], correctIndex: -1 };
-    } else if(/^[a-dA-D]\)/.test(line)){
-      if(!current) continue;
-      let opt = line.replace(/^[a-dA-D]\)/,'').trim();
-      let isCorrect = false;
-      if(opt.endsWith('*')){ isCorrect = true; opt = opt.slice(0,-1).trim(); }
-      current.options.push(opt);
-      if(isCorrect) current.correctIndex = current.options.length - 1;
-    }
-  }
-  if(current && current.text && current.options.length>=2) questions.push(current);
-  return { title, questions };
+function fmtDuration(sec){
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if(h>0) return `${h}س ${m}د ${s}ث`;
+  if(m>0) return `${m}د ${s}ث`;
+  return `${s}ث`;
 }
-function findOptionMarkers(text){
-  // Locates a contiguous run of option letters A,B,C[,D] each followed by ':' or '-'.
-  const regex = /\b([A-D])[.:\-]\s*/g;
-  const matches = [];
-  let m;
-  while((m = regex.exec(text))){
-    matches.push({ letter:m[1], index:m.index, end: m.index+m[0].length });
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function nav(name, params = {}){
+  if(state.route && state.route.name){
+    state.history.push({ name: state.route.name, params: state.route.params });
   }
-  for(let i=0;i<matches.length;i++){
-    if(matches[i].letter!=='A') continue;
-    const seq = [matches[i]];
-    let expected = 'B';
-    let broken = false;
-    for(let j=i+1;j<matches.length;j++){
-      if(matches[j].letter===expected){
-        seq.push(matches[j]);
-        if(expected==='B') expected='C';
-        else if(expected==='C') expected='D';
-        else break; // found D, a run can be at most 4 options
-      } else if(expected==='D'){
-        break; // no D present — a 3-option question, which is fine
-      } else {
-        broken = true; break; // sequence interrupted before reaching at least A,B,C
-      }
-    }
-    if(!broken && seq.length>=3) return seq;
+  state.route = { name, params };
+  state.drawerOpen = false;
+  render();
+  window.scrollTo(0,0);
+}
+
+function goBack(){
+  if(state.route.name === 'quiz'){
+    openModal(`
+      <div class="modal-head"><h3 style="margin:0;">إنهاء الاختبار؟</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+      <p class="sub">سيتم الخروج من الاختبار الحالي بدون حفظ نتيجته. هل تريد الاستمرار؟</p>
+      <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="closeModal();actuallyGoBack();">خروج</button></div>
+    `, true);
+    return;
   }
+  actuallyGoBack();
+}
+
+function actuallyGoBack(){
+  if(state.history.length > 0){
+    state.route = state.history.pop();
+  } else {
+    state.route = { name: 'home', params: {} };
+  }
+  state.drawerOpen = false;
+  render();
+  window.scrollTo(0,0);
+}
+
+async function sessionSave(num, isAdmin){
+  try{ localStorage.setItem('step_session', JSON.stringify({num, isAdmin})); }catch(e){}
+}
+async function sessionLoad(){
+  try{ const r = localStorage.getItem('step_session'); if(r) return JSON.parse(r); }catch(e){}
   return null;
 }
-function parseQuickAddInline(raw){
-  // Format: "Q1: question text? A: opt1. B: opt2. C: opt3. D: opt4*" or "A- opt1 B- opt2 C- opt3*"
-  // (3 or 4 options, either ':' or '-' as separator). May span 2 lines: a context line with no
-  // options, then the actual question+options on the next line. Correct option is whichever one
-  // ends with "*", not necessarily the last.
-  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
-  let title = '';
-  let i = 0;
-  if(lines.length && /^(title|عنوان الاختبار|عنوان)\s*:/i.test(lines[0]) && !/\b[A-D][.:\-]/.test(lines[0])){
-    title = lines[0].replace(/^(title|عنوان الاختبار|عنوان)\s*:/i,'').trim();
-    i = 1;
-  }
-  const questions = [];
-  let buffer = '';
-  for(; i<lines.length; i++){
-    const line = lines[i];
-    const qMatch = line.match(/^Q\s*\d+\s*:\s*(.*)$/i);
-    buffer = qMatch ? qMatch[1] : (buffer ? (buffer + ' ' + line) : line);
-    const seq = findOptionMarkers(buffer);
-    if(seq){
-      const stem = buffer.slice(0, seq[0].index).trim();
-      let correctIndex = -1;
-      const options = seq.map((marker, idx) => {
-        const start = marker.end;
-        const end = (idx+1 < seq.length) ? seq[idx+1].index : buffer.length;
-        let clean = buffer.slice(start, end).trim();
-        if(/\*\s*$/.test(clean)){ correctIndex = idx; clean = clean.replace(/\*\s*$/,'').trim(); }
-        clean = clean.replace(/\.\s*$/,'').trim();
-        return clean;
-      });
-      if(stem && options.length>=3 && options.every(o=>o)) questions.push({ text: stem, options, correctIndex });
-      buffer = '';
-    }
-  }
-  return { title, questions };
-}
-function parseQuickAdd(raw){
-  const lettered = parseQuickAddLettered(raw);
-  if(lettered.questions.length) return lettered;
-  return parseQuickAddInline(raw);
-}
-
-/* ============ DATA LAYER ============ */
-const Data = {
-  // users
-  async getUser(number){
-    const snap = await getDoc(doc(usersCol, String(number)));
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
-  },
-  async createUser(number, name, isAdmin){
-    const data = { number: String(number), name, isAdmin: !!isAdmin, createdAt: serverTimestamp() };
-    await setDoc(doc(usersCol, String(number)), data);
-    return { id: String(number), ...data, createdAt: new Date() };
-  },
-  async getAllUsers(){
-    const snap = await getDocs(usersCol);
-    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'desc');
-  },
-
-  // sections
-  async getSections(){
-    const snap = await getDocs(sectionsCol);
-    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
-  },
-  async getSection(id){
-    const snap = await getDoc(doc(sectionsCol,id));
-    return snap.exists() ? {id:snap.id,...snap.data()} : null;
-  },
-  async addSection(name){
-    const ref = await addDoc(sectionsCol, { name, createdAt: serverTimestamp() });
-    return ref.id;
-  },
-  async updateSection(id, name){ await updateDoc(doc(sectionsCol,id), { name }); },
-  async deleteSection(id){
-    const tests = await Data.getTests(id);
-    await Promise.all(tests.map(t => Data.deleteTest(t.id)));
-    await deleteDoc(doc(sectionsCol,id));
-  },
-
-  // tests
-  async getTests(sectionId){
-    const snap = await getDocs(query(testsCol, where('sectionId','==',sectionId)));
-    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
-  },
-  async getTest(id){
-    const snap = await getDoc(doc(testsCol,id));
-    return snap.exists() ? {id:snap.id,...snap.data()} : null;
-  },
-  async addTest(sectionId, title){
-    const ref = await addDoc(testsCol, { sectionId, title, createdAt: serverTimestamp() });
-    return ref.id;
-  },
-  async updateTestTitle(id, title){ await updateDoc(doc(testsCol,id), { title }); },
-  async deleteTest(id){
-    const qs = await Data.getQuestions(id);
-    const batch = writeBatch(db);
-    qs.forEach(q => batch.delete(doc(questionsCol,q.id)));
-    batch.delete(doc(testsCol,id));
-    await batch.commit();
-  },
-
-  // questions
-  async getQuestions(testId){
-    const snap = await getDocs(query(questionsCol, where('testId','==',testId)));
-    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
-  },
-  async getQuestionsBySection(sectionId){
-    const snap = await getDocs(query(questionsCol, where('sectionId','==',sectionId)));
-    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
-  },
-  async getQuestionsByIds(ids){
-    const snaps = await Promise.all(ids.map(id => getDoc(doc(questionsCol,id))));
-    return snaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data()}));
-  },
-  async addQuestion(testId, sectionId, q){
-    const ref = await addDoc(questionsCol, {
-      testId, sectionId, text:q.text, options:q.options, correctIndex:q.correctIndex, createdAt: serverTimestamp()
-    });
-    return ref.id;
-  },
-  async updateQuestion(id, data){ await updateDoc(doc(questionsCol,id), data); },
-  async deleteQuestion(id){ await deleteDoc(doc(questionsCol,id)); },
-
-  // attempts
-  async addAttempt(data){
-    const ref = await addDoc(attemptsCol, { ...data, createdAt: serverTimestamp() });
-    return ref.id;
-  },
-  async getAttempt(id){
-    const snap = await getDoc(doc(attemptsCol,id));
-    return snap.exists() ? {id:snap.id,...snap.data()} : null;
-  },
-  async getUserAttempts(userId){
-    const snap = await getDocs(query(attemptsCol, where('userId','==',userId)));
-    return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=> tsToDate(b.startedAt) - tsToDate(a.startedAt));
-  },
-  async getAllAttemptsCount(){
-    const snap = await getDocs(attemptsCol);
-    return snap.size;
-  },
-
-  // saved
-  savedId(userId, questionId){ return `${userId}_${questionId}`; },
-  async isSaved(userId, questionId){
-    const snap = await getDoc(doc(savedCol, Data.savedId(userId,questionId)));
-    return snap.exists();
-  },
-  async addSaved(userId, q){
-    await setDoc(doc(savedCol, Data.savedId(userId,q.id)), {
-      userId, questionId:q.id, testId:q.testId, sectionId:q.sectionId, savedAt: serverTimestamp()
-    });
-  },
-  async removeSaved(userId, questionId){
-    await deleteDoc(doc(savedCol, Data.savedId(userId,questionId)));
-  },
-  async getSavedByUser(userId){
-    const snap = await getDocs(query(savedCol, where('userId','==',userId)));
-    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data(), createdAt:d.data().savedAt})), 'desc');
-  },
-
-  // wrong
-  wrongId(userId, questionId){ return `${userId}_${questionId}`; },
-  async upsertWrong(userId, q){
-    await setDoc(doc(wrongCol, Data.wrongId(userId,q.id)), {
-      userId, questionId:q.id, testId:q.testId, sectionId:q.sectionId, updatedAt: serverTimestamp()
-    });
-  },
-  async removeWrong(userId, questionId){
-    try{ await deleteDoc(doc(wrongCol, Data.wrongId(userId,questionId))); }catch(e){}
-  },
-  async getWrongByUser(userId){
-    const snap = await getDocs(query(wrongCol, where('userId','==',userId)));
-    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data(), createdAt:d.data().updatedAt})), 'desc');
-  },
-};
-
-/* ============ STATE ============ */
-const state = {
-  user: null,
-  pendingNumber: null,
-  menuOpen: false,
-  modal: null,      // {type, ...payload}
-  quiz: null,       // active quiz session
-  lastAttempt: null,// cached just-finished attempt for result screen
-  cache: {},        // misc per-render cache
-};
-
-const app = document.getElementById('app');
-
-function navigate(hash){ location.hash = hash; }
-function goBack(){ history.back(); }
-function setModal(m){ state.modal = m; render(); }
-function closeModal(){ state.modal = null; render(); }
-
-/* ============ SHARED UI ============ */
-function menuItemsFor(user){
-  if(user.isAdmin){
-    return [
-      { icon: ICON.section, label:'Manage Sections', hash:'#/admin/sections' },
-      { icon: ICON.users,   label:'Manage Users',    hash:'#/admin/users' },
-    ];
-  }
-  return [
-    { icon: ICON.wrong,   label:'Wrong Questions',  hash:'#/user/wrong' },
-    { icon: ICON.section, label:'Sections',          hash:'#/user/sections' },
-    { icon: ICON.saved,   label:'Saved Questions',   hash:'#/user/saved' },
-    { icon: ICON.history, label:'Test History',      hash:'#/user/history' },
-  ];
-}
-
-function renderTopbar(){
-  return `
-  <div class="topbar">
-    <div class="left">
-      <button class="icon-btn" data-action="logout" title="Log out">${ICON.logout}</button>
-      <button class="icon-btn" data-action="back" title="Back">${ICON.back}</button>
-    </div>
-    <div class="brand">
-      <div class="step-mark"><i></i><i></i><i></i><i></i></div>
-      <span class="wordmark">STEP<span>.</span></span>
-    </div>
-    <button class="icon-btn" data-action="open-menu" title="Menu">${ICON.menu}</button>
-  </div>`;
-}
-
-function renderMenu(){
-  if(!state.menuOpen || !state.user) return '';
-  const items = menuItemsFor(state.user);
-  return `
-  <div class="menu-overlay" data-action="menu-backdrop">
-    <div class="menu-panel">
-      <div class="row-between" style="margin-bottom:18px;">
-        <span style="font-weight:700;font-size:15px;">Menu</span>
-        <button class="icon-btn" data-action="close-menu">${ICON.close}</button>
-      </div>
-      ${items.map(it=>`<a class="menu-item" data-action="go" data-hash="${it.hash}">${it.icon}${it.label}</a>`).join('')}
-      <div class="menu-foot">
-        <a class="menu-item" data-action="logout">${ICON.logout}Log out</a>
-      </div>
-    </div>
-  </div>`;
-}
-
-function renderModal(){
-  const m = state.modal;
-  if(!m) return '';
-  let body = '';
-  if(m.type==='confirm'){
-    body = `
-      <h3>${esc(m.title)}</h3>
-      <p class="muted">${esc(m.message)}</p>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
-        <button class="btn btn-danger" style="background:var(--red);color:#fff;" data-action="modal-confirm">${esc(m.confirmLabel||'Delete')}</button>
-      </div>`;
-  } else if(m.type==='textInput'){
-    body = `
-      <h3>${esc(m.title)}</h3>
-      <div class="field">
-        <label>${esc(m.label)}</label>
-        <input type="text" id="modal-input-val" value="${esc(m.value||'')}" placeholder="${esc(m.placeholder||'')}" autofocus />
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
-        <button class="btn btn-primary" data-action="modal-confirm">${esc(m.confirmLabel||'Save')}</button>
-      </div>`;
-  } else if(m.type==='choice'){
-    body = `
-      <h3>${esc(m.title)}</h3>
-      <div class="grid" style="margin-top:14px;">
-        ${m.options.map(o=>`<button class="btn btn-block" data-action="modal-choice" data-value="${esc(o.value)}">${esc(o.label)}</button>`).join('')}
-      </div>
-      <div class="modal-actions"><button class="btn btn-ghost" data-action="modal-cancel">Cancel</button></div>`;
-  } else if(m.type==='quickAdd'){
-    body = `
-      <h3>Quick Add — Paste Questions</h3>
-      <p class="muted" style="font-size:13px;line-height:1.6;">
-        First line is the title (<code>Title: ...</code> or <code>عنوان الاختبار: ...</code>). Then each
-        question as <code>Q1: text? A: opt. B: opt. C: opt. D: opt</code> — put <code>*</code> right after
-        the correct option (any of A–D). A question can span two lines: a context line, then the line with
-        the question and options.
-      </p>
-      <div class="field">
-        <textarea id="modal-quickadd" rows="14" placeholder="Title: Model 1
-
-Q1: Why is it too late to record the language? A: It is new. B: Few speak it. C: It is banned. D: It is spoken mainly by elders*
-Q2: قطعة عن طالب اشترى له والده سيارة جديدة.
-Why did the father buy the car? A: To go to work. B: To sell it later. C: Because it was cheap. D: Because he passed his exams*">${esc(m.value||'')}</textarea>
-      </div>
-      <p class="faint" style="font-size:12px;">The older <code>A) B) C) D)</code> per-line format (with the title on its own <code>Title:</code> line and each option on its own line) also still works.</p>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
-        <button class="btn btn-primary" data-action="modal-quickadd-submit">Parse & Add</button>
-      </div>`;
-  } else if(m.type==='question'){
-    const q = m.question || {text:'',options:['','','',''],correctIndex:0};
-    body = `
-      <h3>${m.editId ? 'Edit Question' : 'Add Question'}</h3>
-      <div class="field">
-        <label>Question text</label>
-        <textarea id="qm-text" rows="3" style="font-family:'Inter',sans-serif;font-size:14px;">${esc(q.text)}</textarea>
-      </div>
-      ${[0,1,2,3].map(i=>`
-        <div class="field" style="display:flex;align-items:center;gap:10px;">
-          <input type="radio" name="qm-correct" value="${i}" id="qm-correct-${i}" ${q.correctIndex===i?'checked':''} style="width:18px;height:18px;flex-shrink:0;" />
-          <input type="text" id="qm-opt-${i}" value="${esc(q.options[i]||'')}" placeholder="Option ${letterOf(i)}${i===3?' (optional)':''}" style="flex:1;" />
-        </div>`).join('')}
-      <p class="faint" style="font-size:12px;">Select the radio button next to the correct answer. Option D can be left empty for 3-option questions.</p>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
-        <button class="btn btn-primary" data-action="modal-question-submit" data-edit-id="${m.editId||''}">${m.editId?'Save':'Add'}</button>
-      </div>`;
-  } else if(m.type==='reviewGate'){
-    body = `
-      <h3>Marked for Review</h3>
-      <p class="muted">You flagged ${m.items.length} question(s) for review before submitting.</p>
-      <div style="max-height:260px;overflow-y:auto;margin:14px 0;">
-        ${m.items.map(it=>`
-          <div class="row-between clickable" data-action="review-jump" data-index="${it.index}" style="padding:10px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px;">
-            <span style="font-size:13.5px;">Q${it.index+1}. ${esc(it.text.slice(0,60))}${it.text.length>60?'…':''}</span>
-            <span class="badge badge-amber">Review</span>
-          </div>`).join('')}
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" data-action="modal-cancel">Keep Reviewing</button>
-        <button class="btn btn-primary" data-action="quiz-submit-final">Submit Anyway</button>
-      </div>`;
-  }
-  return `<div class="modal-overlay" data-action="modal-backdrop"><div class="modal">${body}</div></div>`;
-}
-
-/* ============ ROUTER ============ */
-let lastRouteKey = null;
-async function render(){
-  const hash = location.hash || '#/login';
-  const parts = hash.replace(/^#\//,'').split('/').filter(Boolean);
-  const routeKey = parts.join('/');
-
-  // guard: require login for anything besides login/name
-  if(parts[0] !== 'login' && parts[0] !== 'name' && !state.user){
-    app.innerHTML = wrap(renderLoadingScreen());
-    location.hash = '#/login';
-    return;
-  }
-
-  // instant feedback: paint a spinner right away when the route actually changes,
-  // so clicks feel responsive even while data is still loading from Firestore.
-  if(routeKey !== lastRouteKey && parts[0]!=='login' && parts[0]!=='name'){
-    app.innerHTML = wrap(renderLoadingScreen(), true);
-  }
-  lastRouteKey = routeKey;
-
-  let html = '';
-  try{
-    if(parts[0]==='login') html = renderLogin();
-    else if(parts[0]==='name') html = renderNamePrompt();
-    else if(parts[0]==='user') html = await renderUserRoute(parts.slice(1));
-    else if(parts[0]==='admin') html = await renderAdminRoute(parts.slice(1));
-    else html = renderLogin();
-  }catch(err){
-    console.error(err);
-    html = `<div class="empty">Something went wrong loading this page.<br><span class="faint">${esc(err.message||err)}</span></div>`;
-  }
-  app.innerHTML = wrap(html, parts[0]!=='login' && parts[0]!=='name');
-}
-function wrap(inner, withTopbar){
-  return `${withTopbar ? renderTopbar() : ''}${inner}${renderMenu()}${renderModal()}`;
-}
-function renderLoadingScreen(){ return `<div class="center-screen"><div class="spinner"></div></div>`; }
-
-/* ============ AUTH SCREENS ============ */
-function renderLogin(){
-  return `
-  <div class="center-screen">
-    <div class="login-wrap">
-      <div class="login-card">
-        <div class="brand" style="margin-bottom:22px;">
-          <div class="step-mark"><i></i><i></i><i></i><i></i></div>
-          <span class="wordmark">STEP<span>.</span></span>
-        </div>
-        <h2 style="margin:0 0 6px;">Sign in</h2>
-        <p class="muted" style="margin:0 0 22px;font-size:14px;">Enter any number to sign in. New numbers create an account automatically.</p>
-        <form id="login-form">
-          <div class="field">
-            <label>Your number</label>
-            <input type="tel" inputmode="numeric" id="login-number" placeholder="e.g. 42" autofocus required />
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Continue</button>
-        </form>
-        <p class="login-hint">Tip: numbers are personal IDs, not passwords — pick any number that isn't taken yet and it becomes yours.</p>
-      </div>
-    </div>
-  </div>`;
-}
-function renderNamePrompt(){
-  return `
-  <div class="center-screen">
-    <div class="login-wrap">
-      <div class="login-card">
-        <div class="brand" style="margin-bottom:22px;">
-          <div class="step-mark"><i></i><i></i><i></i><i></i></div>
-          <span class="wordmark">STEP<span>.</span></span>
-        </div>
-        <h2 style="margin:0 0 6px;">Welcome, #${esc(state.pendingNumber)}</h2>
-        <p class="muted" style="margin:0 0 22px;font-size:14px;">This number is new — what should we call you?</p>
-        <form id="name-form">
-          <div class="field">
-            <label>Your name</label>
-            <input type="text" id="name-input" placeholder="Full name" autofocus required />
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">Create account</button>
-        </form>
-      </div>
-    </div>
-  </div>`;
-}
-
-/* ============ USER ROUTES ============ */
-async function renderUserRoute(segs){
-  const [section] = segs;
-  if(section==='home' || !section) return await renderUserHome();
-  if(section==='wrong') return await renderWrongQuestions();
-  if(section==='saved') return await renderSavedQuestions();
-  if(section==='history'){
-    if(segs[1]) return await renderHistoryDetail(segs[1]);
-    return await renderHistory();
-  }
-  if(section==='sections'){
-    if(segs[1]) return await renderSectionTests(segs[1]);
-    return await renderSections();
-  }
-  if(section==='quiz'){
-    return await renderQuizRoute(segs.slice(1));
-  }
-  if(section==='result'){
-    return await renderResult(segs[1]);
-  }
-  return renderLoadingScreen();
-}
-
-async function renderUserHome(){
-  const attempts = await Data.getUserAttempts(state.user.id);
-  const total = attempts.length;
-  let sumScore=0,sumTotal=0,sumDur=0;
-  attempts.forEach(a=>{ sumScore+=a.score||0; sumTotal+=a.total||0; sumDur+=a.durationSec||0; });
-  const avgPct = sumTotal ? Math.round((sumScore/sumTotal)*100) : 0;
-  const avgDur = total ? sumDur/total : 0;
-
-  return `
-  <h1 class="page-title">Hi, ${esc(state.user.name)} <span class="faint mono" style="font-size:15px;">#${esc(state.user.number)}</span></h1>
-  <p class="page-sub">Here's how your practice is going so far.</p>
-  <div class="grid grid-3">
-    <div class="stat"><div class="num">${total}</div><div class="label">Tests taken</div></div>
-    <div class="stat"><div class="num">${sumScore}/${sumTotal}</div><div class="label">Total correct</div></div>
-    <div class="stat"><div class="num">${avgPct}%</div><div class="label">Average score</div></div>
-    <div class="stat"><div class="num">${fmtDuration(sumDur)}</div><div class="label">Total time spent</div></div>
-    <div class="stat"><div class="num">${fmtDuration(avgDur)}</div><div class="label">Average time / test</div></div>
-    <div class="stat clickable" data-action="go" data-hash="#/user/sections"><div class="num" style="color:var(--teal);">→</div><div class="label">Start practicing</div></div>
-  </div>`;
-}
-
-async function renderWrongQuestions(){
-  const items = await Data.getWrongByUser(state.user.id);
-  const detailed = await enrichQuestionRefs(items);
-  return `
-  <h1 class="page-title">Wrong Questions</h1>
-  <p class="page-sub">Questions you missed or skipped, gathered in one place.</p>
-  ${detailed.length ? `<button class="btn btn-primary" style="margin-bottom:16px;" data-action="review-list" data-source="wrong">Review All Questions</button>` : ''}
-  ${detailed.length===0 ? emptyBlock('No wrong questions yet — nice work.') :
-    detailed.map(it => renderQuestionRefCard(it, 'wrong')).join('')}
-  `;
-}
-
-async function renderSavedQuestions(){
-  const items = await Data.getSavedByUser(state.user.id);
-  const detailed = await enrichQuestionRefs(items);
-  return `
-  <h1 class="page-title">Saved Questions</h1>
-  <p class="page-sub">Your bookmarked questions for quick review.</p>
-  ${detailed.length ? `<button class="btn btn-primary" style="margin-bottom:16px;" data-action="review-list" data-source="saved">Review All Questions</button>` : ''}
-  ${detailed.length===0 ? emptyBlock("You haven't saved any questions yet.") :
-    detailed.map(it => renderQuestionRefCard(it, 'saved')).join('')}
-  `;
-}
-
-async function enrichQuestionRefs(items){
-  const snaps = await Promise.all(items.map(it => getDoc(doc(questionsCol, it.questionId))));
-  const questions = snaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data()}));
-  const testIds = [...new Set(questions.map(q=>q.testId).filter(Boolean))];
-  const sectionIds = [...new Set(questions.map(q=>q.sectionId).filter(Boolean))];
-  const [testDocs, sectionDocs] = await Promise.all([
-    Promise.all(testIds.map(id => Data.getTest(id))),
-    Promise.all(sectionIds.map(id => Data.getSection(id))),
-  ]);
-  const testMap = Object.fromEntries(testIds.map((id,i)=>[id, testDocs[i]]));
-  const sectionMap = Object.fromEntries(sectionIds.map((id,i)=>[id, sectionDocs[i]]));
-  const snapById = Object.fromEntries(snaps.filter(s=>s.exists()).map(s=>[s.id, {id:s.id,...s.data()}]));
-  const out = [];
-  for(const it of items){
-    const q = snapById[it.questionId];
-    if(!q) continue;
-    const test = testMap[q.testId], sec = sectionMap[q.sectionId];
-    out.push({ ref:it, question:q, testTitle: test?.title||'—', sectionName: sec?.name||'—' });
-  }
-  return out;
-}
-function renderQuestionRefCard(it, kind){
-  return `
-  <div class="card">
-    <div class="row-between" style="align-items:flex-start;">
-      <div style="flex:1;">
-        <div class="badge badge-teal" style="margin-bottom:8px;">${esc(it.sectionName)} · ${esc(it.testTitle)}</div>
-        <div style="font-size:14.5px;font-weight:600;line-height:1.5;">${esc(it.question.text)}</div>
-      </div>
-      <button class="icon-btn" data-action="delete-ref" data-kind="${kind}" data-qid="${it.question.id}" title="Remove">${ICON.trash}</button>
-    </div>
-  </div>`;
-}
-function emptyBlock(msg){
-  return `<div class="empty"><div class="step-mark"><i></i><i></i><i></i><i></i></div>${esc(msg)}</div>`;
-}
-
-async function renderHistory(){
-  const attempts = await Data.getUserAttempts(state.user.id);
-  return `
-  <h1 class="page-title">Test History</h1>
-  <p class="page-sub">Every test you've attempted, with timing and results.</p>
-  ${attempts.length===0 ? emptyBlock('No tests taken yet.') : attempts.map(a=>`
-    <div class="card">
-      <div class="row-between" style="align-items:flex-start;flex-wrap:wrap;gap:10px;">
-        <div>
-          <div class="badge badge-teal" style="margin-bottom:8px;">${esc(a.sectionName||'—')}</div>
-          <div style="font-weight:700;font-size:15.5px;">${esc(a.testTitle||'Test')}</div>
-          <div class="muted" style="font-size:13px;margin-top:4px;">${fmtTimeRange(a.startedAt, a.finishedAt)}</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="mono" style="font-size:18px;font-weight:600;color:var(--amber);">${a.score}/${a.total}</div>
-          <div class="muted mono" style="font-size:12px;">${fmtDuration(a.durationSec)}</div>
-        </div>
-      </div>
-      <div style="margin-top:12px;">
-        <button class="btn btn-sm btn-ghost" data-action="go" data-hash="#/user/history/${a.id}">Details</button>
-      </div>
-    </div>
-  `).join('')}`;
-}
-
-async function renderHistoryDetail(attemptId){
-  const a = await Data.getAttempt(attemptId);
-  if(!a) return emptyBlock('Attempt not found.');
-  return `
-  <h1 class="page-title">${esc(a.testTitle||'Test')}</h1>
-  <p class="page-sub">${esc(a.sectionName||'')} · ${fmtTimeRange(a.startedAt,a.finishedAt)} · Score ${a.score}/${a.total} · ${fmtDuration(a.durationSec)}</p>
-  ${(a.answers||[]).map((ans,i)=>`
-    <div class="card">
-      <div class="row-between" style="align-items:flex-start;">
-        <div style="font-weight:600;font-size:14.5px;flex:1;">Q${i+1}. ${esc(ans.text)}</div>
-        <span class="badge ${ans.isCorrect?'badge-green':'badge-red'}">${ans.isCorrect?'Correct':'Wrong'}</span>
-      </div>
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-        <span class="badge ${ans.saved?'badge-amber':'badge-teal'}" style="opacity:${ans.saved?1:.4}">${ans.saved?'Saved':'Not saved'}</span>
-        <span class="badge ${ans.reviewed?'badge-amber':'badge-teal'}" style="opacity:${ans.reviewed?1:.4}">${ans.reviewed?'Marked for review':'Not marked'}</span>
-        <span class="badge badge-teal mono">${fmtDuration(ans.timeSpentSec)}</span>
-      </div>
-    </div>
-  `).join('')}`;
-}
-
-async function renderSections(){
-  const sections = await Data.getSections();
-  return `
-  <h1 class="page-title">Sections</h1>
-  <p class="page-sub">Pick a section to see its tests, or run everything at once.</p>
-  ${sections.length ? `<button class="btn btn-amber" style="margin-bottom:16px;" data-action="start-quiz" data-scope="allSections">Test All Sections</button>` : ''}
-  ${sections.length===0 ? emptyBlock('No sections yet. Ask your admin to add one.') :
-    `<div class="grid grid-2">${sections.map(s=>`
-      <div class="card clickable" data-action="go" data-hash="#/user/sections/${s.id}">
-        <div class="row-between">
-          <div style="font-weight:700;font-size:16px;">${esc(s.name)}</div>
-          <span style="color:var(--teal);">${ICON.section}</span>
-        </div>
-      </div>`).join('')}</div>`}
-  `;
-}
-
-async function renderSectionTests(sectionId){
-  const [sec, tests] = await Promise.all([ Data.getSection(sectionId), Data.getTests(sectionId) ]);
-  if(!sec) return emptyBlock('Section not found.');
-  return `
-  <h1 class="page-title">${esc(sec.name)}</h1>
-  <p class="page-sub">Choose a test to begin, or run the whole section.</p>
-  ${tests.length ? `<button class="btn btn-amber" style="margin-bottom:16px;" data-action="start-quiz" data-scope="sectionAll" data-section-id="${sectionId}">Test All Tests in This Section</button>` : ''}
-  ${tests.length===0 ? emptyBlock('No tests in this section yet.') :
-    tests.map(t=>`
-      <div class="card clickable" data-action="start-quiz" data-scope="test" data-section-id="${sectionId}" data-test-id="${t.id}">
-        <div class="row-between">
-          <div style="font-weight:700;font-size:15.5px;">${esc(t.title)}</div>
-          <span style="color:var(--teal);">${ICON.check}</span>
-        </div>
-      </div>`).join('')}
-  `;
-}
-
-/* ============ QUIZ ENGINE ============ */
-async function buildQuizForScope(scope, sectionId, testId){
-  let questions=[], testTitle='', sectionName='';
-  if(scope==='test'){
-    const [test,sec] = await Promise.all([Data.getTest(testId), Data.getSection(sectionId)]);
-    questions = await Data.getQuestions(testId);
-    testTitle = test?.title||'Test'; sectionName = sec?.name||'';
-  } else if(scope==='sectionAll'){
-    const sec = await Data.getSection(sectionId);
-    questions = await Data.getQuestionsBySection(sectionId);
-    testTitle = 'All Tests'; sectionName = sec?.name||'';
-  } else if(scope==='allSections'){
-    const snap = await getDocs(questionsCol);
-    questions = snap.docs.map(d=>({id:d.id,...d.data()}));
-    testTitle = 'All Sections'; sectionName = 'All Sections';
-  }
-  return { scope, sectionId:sectionId||null, testId:testId||null, testTitle, sectionName, questions };
-}
-function newQuizSession(built, key){
-  return {
-    key,
-    scope: built.scope, sectionId: built.sectionId, testId: built.testId,
-    testTitle: built.testTitle, sectionName: built.sectionName,
-    questions: built.questions,
-    currentIndex: 0,
-    answers: {}, savedSet: new Set(), reviewSet: new Set(), timeSpent: {},
-    questionShownAt: Date.now(), quizStartedAt: Date.now(), startedAtWall: new Date(),
-  };
-}
-async function attachSavedSet(session){
-  const snap = await getDocs(query(savedCol, where('userId','==',state.user.id)));
-  const savedQids = new Set(snap.docs.map(d=>d.data().questionId));
-  session.questions.forEach(q=>{ if(savedQids.has(q.id)) session.savedSet.add(q.id); });
-}
-async function renderQuizRoute(segs){
-  const [scope, a, b] = segs;
-  let sectionId=null, testId=null;
-  if(scope==='test'){ sectionId=a; testId=b; }
-  else if(scope==='sectionAll'){ sectionId=a; }
-  else if(scope==='custom'){ testId=a; }
-
-  const expectedKey = `${scope}:${sectionId||''}:${testId||''}`;
-  if(!state.quiz || state.quiz.key!==expectedKey){
-    let built;
-    if(scope==='custom'){
-      const ids = state.cache.customQuestionIds||[];
-      const questions = await Data.getQuestionsByIds(ids);
-      built = { scope:'custom', sectionId:null, testId:a,
-        testTitle: a==='wrong' ? 'Wrong Questions Review' : 'Saved Questions Review',
-        sectionName: 'Review', questions };
-    } else {
-      built = await buildQuizForScope(scope, sectionId, testId);
-    }
-    if(!built.questions.length) return emptyBlock('No questions available for this selection yet.');
-    state.quiz = newQuizSession(built, expectedKey);
-    await attachSavedSet(state.quiz);
-  }
-  return renderQuizScreen();
-}
-function currentQuestion(){ return state.quiz.questions[state.quiz.currentIndex]; }
-function accumulateCurrentQuestionTime(){
-  const quiz = state.quiz; if(!quiz) return;
-  const q = currentQuestion();
-  const now = Date.now();
-  quiz.timeSpent[q.id] = (quiz.timeSpent[q.id]||0) + (now - quiz.questionShownAt);
-  quiz.questionShownAt = now;
-}
-function updateQuizTimerDisplay(){
-  if(!state.quiz) return;
-  const el = document.getElementById('quiz-timer');
-  if(!el) return;
-  const elapsed = Math.floor((Date.now()-state.quiz.quizStartedAt)/1000);
-  const m = String(Math.floor(elapsed/60)).padStart(2,'0');
-  const s = String(elapsed%60).padStart(2,'0');
-  el.textContent = `${m}:${s}`;
-}
-setInterval(updateQuizTimerDisplay, 1000);
-
-function renderQuizScreen(){
-  const quiz = state.quiz;
-  const q = currentQuestion();
-  const total = quiz.questions.length;
-  const answeredCount = Object.keys(quiz.answers).length;
-  const selected = quiz.answers[q.id];
-  const isSaved = quiz.savedSet.has(q.id);
-  const isReviewed = quiz.reviewSet.has(q.id);
-  const pct = Math.round(((quiz.currentIndex+1)/total)*100);
-  return `
-  <div class="row-between" style="margin-bottom:6px;">
-    <span class="badge badge-teal">${esc(quiz.sectionName)} · ${esc(quiz.testTitle)}</span>
-    <span class="timer">${ICON.clock}<span id="quiz-timer">00:00</span></span>
-  </div>
-  <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-  <div class="row-between" style="margin-bottom:10px;">
-    <span class="muted mono" style="font-size:13px;">Question ${quiz.currentIndex+1} / ${total} · ${answeredCount} answered</span>
-    <div class="quiz-actions">
-      <button class="icon-btn ${isSaved?'active-save':''}" data-action="toggle-save" title="Save question">${isSaved?ICON.bookmarkFilled:ICON.bookmark}</button>
-      <button class="icon-btn ${isReviewed?'active':''}" data-action="toggle-review" title="Mark for review">${ICON.review}</button>
-    </div>
-  </div>
-  <div class="card">
-    <div class="q-text">${esc(q.text)}</div>
-    ${q.options.map((opt,i)=>`
-      <div class="option ${selected===i?'selected':''}" data-action="select-option" data-index="${i}">
-        <span class="letter">${letterOf(i)}</span><span>${esc(opt)}</span>
-      </div>`).join('')}
-  </div>
-  <div class="qpalette">
-    ${quiz.questions.map((qq,i)=>`
-      <button class="qdot ${i===quiz.currentIndex?'current':''} ${quiz.answers[qq.id]!==undefined?'answered':''} ${quiz.reviewSet.has(qq.id)?'reviewed':''}" data-action="goto-question" data-index="${i}">${i+1}</button>
-    `).join('')}
-  </div>
-  <div class="row-between">
-    <button class="btn btn-ghost" data-action="quiz-prev" ${quiz.currentIndex===0?'disabled':''}>Previous</button>
-    ${quiz.currentIndex<total-1
-      ? `<button class="btn btn-primary" data-action="quiz-next">Next</button>`
-      : `<button class="btn btn-amber" data-action="quiz-submit">Submit Test</button>`}
-  </div>`;
-}
-async function toggleSave(){
-  const quiz = state.quiz; const q = currentQuestion();
-  if(quiz.savedSet.has(q.id)){ quiz.savedSet.delete(q.id); await Data.removeSaved(state.user.id, q.id); }
-  else { quiz.savedSet.add(q.id); await Data.addSaved(state.user.id, q); }
-  render();
-}
-function toggleReview(){
-  const quiz = state.quiz; const q = currentQuestion();
-  if(quiz.reviewSet.has(q.id)) quiz.reviewSet.delete(q.id); else quiz.reviewSet.add(q.id);
-  render();
-}
-function selectOption(idx){
-  const quiz = state.quiz; const q = currentQuestion();
-  quiz.answers[q.id] = idx; render();
-}
-function gotoQuestion(idx){
-  accumulateCurrentQuestionTime();
-  state.quiz.currentIndex = idx; state.quiz.questionShownAt = Date.now(); render();
-}
-function quizNext(){ if(state.quiz.currentIndex < state.quiz.questions.length-1) gotoQuestion(state.quiz.currentIndex+1); }
-function quizPrev(){ if(state.quiz.currentIndex > 0) gotoQuestion(state.quiz.currentIndex-1); }
-function buildReviewGateItems(){
-  const quiz = state.quiz, items = [];
-  quiz.questions.forEach((q,i)=>{ if(quiz.reviewSet.has(q.id)) items.push({index:i, text:q.text}); });
-  return items;
-}
-function quizSubmitClicked(){
-  accumulateCurrentQuestionTime();
-  const items = buildReviewGateItems();
-  if(items.length>0){ setModal({ type:'reviewGate', items }); }
-  else { finalizeQuiz(); }
-}
-async function finalizeQuiz(){
-  const quiz = state.quiz;
-  const durationSec = Math.round((Date.now()-quiz.quizStartedAt)/1000);
-  const answersArr = quiz.questions.map(q => {
-    const selectedIndex = quiz.answers[q.id] !== undefined ? quiz.answers[q.id] : -1;
-    const isCorrect = selectedIndex === q.correctIndex;
-    const timeSpentSec = Math.round((quiz.timeSpent[q.id]||0)/1000);
-    return {
-      questionId:q.id, text:q.text, options:q.options, correctIndex:q.correctIndex,
-      selectedIndex, isCorrect, timeSpentSec, saved: quiz.savedSet.has(q.id), reviewed: quiz.reviewSet.has(q.id)
-    };
-  });
-  const wrongWritesPromise = Promise.all(quiz.questions.map(q => {
-    const a = answersArr.find(x=>x.questionId===q.id);
-    return a.isCorrect ? Data.removeWrong(state.user.id, q.id) : Data.upsertWrong(state.user.id, q);
-  }));
-  const score = answersArr.filter(a=>a.isCorrect).length;
-  const [attemptId] = await Promise.all([
-    Data.addAttempt({
-      userId: state.user.id,
-      scopeType: quiz.scope,
-      sectionId: quiz.sectionId || null,
-      sectionName: quiz.sectionName,
-      testId: quiz.testId || null,
-      testTitle: quiz.testTitle,
-      startedAt: quiz.startedAtWall,
-      finishedAt: new Date(),
-      durationSec, score, total: answersArr.length,
-      answers: answersArr,
-    }),
-    wrongWritesPromise,
-  ]);
-  state.quiz = null; state.modal = null;
-  navigate(`#/user/result/${attemptId}`);
-}
-async function renderResult(attemptId){
-  const a = await Data.getAttempt(attemptId);
-  if(!a) return emptyBlock('Result not found.');
-  const pct = a.total ? Math.round((a.score/a.total)*100) : 0;
-  const wrongAnswers = (a.answers||[]).filter(x=>!x.isCorrect);
-  let nextTestHtml = '';
-  if(a.scopeType==='test' && a.sectionId && a.testId){
-    const tests = await Data.getTests(a.sectionId);
-    const idx = tests.findIndex(t=>t.id===a.testId);
-    const next = idx>=0 ? tests[idx+1] : null;
-    if(next) nextTestHtml = `<button class="btn btn-primary" data-action="start-quiz" data-scope="test" data-section-id="${a.sectionId}" data-test-id="${next.id}">Next Test</button>`;
-  }
-  let retakeHtml = '';
-  if(a.scopeType==='test') retakeHtml = `<button class="btn btn-ghost" data-action="start-quiz" data-scope="test" data-section-id="${a.sectionId}" data-test-id="${a.testId}">Retake Test</button>`;
-  else if(a.scopeType==='sectionAll') retakeHtml = `<button class="btn btn-ghost" data-action="start-quiz" data-scope="sectionAll" data-section-id="${a.sectionId}">Retake</button>`;
-  else if(a.scopeType==='allSections') retakeHtml = `<button class="btn btn-ghost" data-action="start-quiz" data-scope="allSections">Retake</button>`;
-  return `
-  <div class="center-screen" style="min-height:0;padding:30px 0;">
-    <div style="width:100%;max-width:480px;">
-      <div class="card" style="text-align:center;">
-        <div class="step-mark" style="justify-content:center;margin-bottom:14px;"><i></i><i></i><i></i><i></i></div>
-        <div style="font-size:38px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--amber);">${a.score}/${a.total}</div>
-        <div class="muted" style="margin-bottom:10px;">${pct}% correct</div>
-        <div class="muted mono" style="font-size:13px;">${ICON.clock} ${fmtDuration(a.durationSec)}</div>
-      </div>
-      <div class="row-between" style="gap:10px;flex-wrap:wrap;">
-        ${nextTestHtml}${retakeHtml}
-        <button class="btn btn-ghost" data-action="go" data-hash="#/user/sections">Back to Sections</button>
-      </div>
-    </div>
-  </div>
-  ${wrongAnswers.length ? `<h2 style="margin-top:10px;">Missed Questions</h2>` : ''}
-  ${wrongAnswers.map(w=>`
-    <div class="card">
-      <div class="q-text" style="font-size:15px;">${esc(w.text)}</div>
-      ${w.options.map((opt,i)=>{
-        let cls='';
-        if(i===w.correctIndex) cls='correct'; else if(i===w.selectedIndex) cls='wrong';
-        return `<div class="option ${cls}"><span class="letter">${letterOf(i)}</span><span>${esc(opt)}</span></div>`;
-      }).join('')}
-    </div>`).join('')}
-  `;
-}
-async function startQuizAction(scope, sectionId, testId){
-  state.quiz = null;
-  let hash;
-  if(scope==='test') hash = `#/user/quiz/test/${sectionId}/${testId}`;
-  else if(scope==='sectionAll') hash = `#/user/quiz/sectionAll/${sectionId}`;
-  else hash = `#/user/quiz/allSections`;
-  if(location.hash===hash) await render(); else navigate(hash);
-}
-async function startReviewListAction(source){
-  const items = source==='wrong' ? await Data.getWrongByUser(state.user.id) : await Data.getSavedByUser(state.user.id);
-  state.cache.customQuestionIds = items.map(i=>i.questionId);
-  state.quiz = null;
-  const hash = `#/user/quiz/custom/${source}`;
-  if(location.hash===hash) await render(); else navigate(hash);
-}
-
-/* ============ ADMIN ROUTES ============ */
-async function renderAdminRoute(segs){
-  const [section] = segs;
-  if(section==='home' || !section) return await renderAdminHome();
-  if(section==='users') return await renderAdminUsers();
-  if(section==='sections'){
-    if(segs[1] && segs[2]==='tests'){
-      if(segs[3]) return await renderAdminTestEdit(segs[1], segs[3]);
-      return await renderAdminSectionTests(segs[1]);
-    }
-    return await renderAdminSections();
-  }
-  return renderLoadingScreen();
-}
-
-async function renderAdminHome(){
-  const [sections, questionsSnap, attemptsCount, users] = await Promise.all([
-    Data.getSections(), getDocs(questionsCol), Data.getAllAttemptsCount(), Data.getAllUsers()
-  ]);
-  const testsPerSection = await Promise.all(sections.map(s => Data.getTests(s.id)));
-  const testsTotal = testsPerSection.reduce((sum,arr) => sum + arr.length, 0);
-  return `
-  <h1 class="page-title">Admin Overview</h1>
-  <p class="page-sub">A quick look at everything you've built.</p>
-  <div class="grid grid-3">
-    <div class="stat"><div class="num">${sections.length}</div><div class="label">Sections</div></div>
-    <div class="stat"><div class="num">${testsTotal}</div><div class="label">Tests</div></div>
-    <div class="stat"><div class="num">${questionsSnap.size}</div><div class="label">Questions</div></div>
-    <div class="stat"><div class="num">${attemptsCount}</div><div class="label">Tests taken by users</div></div>
-    <div class="stat"><div class="num">${users.filter(u=>!u.isAdmin).length}</div><div class="label">Registered users</div></div>
-    <div class="stat clickable" data-action="go" data-hash="#/admin/sections"><div class="num" style="color:var(--teal);">→</div><div class="label">Manage sections</div></div>
-  </div>`;
-}
-
-async function renderAdminSections(){
-  const sections = await Data.getSections();
-  return `
-  <h1 class="page-title">Manage Sections</h1>
-  <p class="page-sub">Sections group tests together for your users.</p>
-  <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-section">${ICON.plus} Add Section</button>
-  ${sections.length===0 ? emptyBlock('No sections yet — add your first one.') :
-    sections.map(s=>`
-      <div class="card">
-        <div class="row-between">
-          <div class="clickable" style="flex:1;font-weight:700;font-size:15.5px;" data-action="go" data-hash="#/admin/sections/${s.id}/tests">${esc(s.name)}</div>
-          <div style="display:flex;gap:6px;">
-            <button class="icon-btn" data-action="edit-section" data-id="${s.id}" data-name="${esc(s.name)}">${ICON.edit}</button>
-            <button class="icon-btn" data-action="delete-section" data-id="${s.id}" data-name="${esc(s.name)}">${ICON.trash}</button>
-          </div>
-        </div>
-      </div>`).join('')}`;
-}
-
-async function renderAdminSectionTests(sectionId){
-  const [sec, tests] = await Promise.all([ Data.getSection(sectionId), Data.getTests(sectionId) ]);
-  if(!sec) return emptyBlock('Section not found.');
-  return `
-  <h1 class="page-title">${esc(sec.name)}</h1>
-  <p class="page-sub">Tests inside this section.</p>
-  <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-test" data-section-id="${sectionId}">${ICON.plus} Add Test</button>
-  ${tests.length===0 ? emptyBlock('No tests yet — add your first one.') :
-    tests.map(t=>`
-      <div class="card">
-        <div class="row-between">
-          <div class="clickable" style="flex:1;font-weight:700;font-size:15px;" data-action="go" data-hash="#/admin/sections/${sectionId}/tests/${t.id}">${esc(t.title)}</div>
-          <div style="display:flex;gap:6px;">
-            <button class="icon-btn" data-action="edit-test-title" data-id="${t.id}" data-section-id="${sectionId}" data-title="${esc(t.title)}">${ICON.edit}</button>
-            <button class="icon-btn" data-action="delete-test" data-id="${t.id}" data-section-id="${sectionId}" data-title="${esc(t.title)}">${ICON.trash}</button>
-          </div>
-        </div>
-      </div>`).join('')}`;
-}
-
-async function renderAdminTestEdit(sectionId, testId){
-  const [test, questions] = await Promise.all([ Data.getTest(testId), Data.getQuestions(testId) ]);
-  if(!test) return emptyBlock('Test not found.');
-  return `
-  <h1 class="page-title">${esc(test.title)} <button class="icon-btn" style="vertical-align:middle;" data-action="edit-test-title" data-id="${testId}" data-section-id="${sectionId}" data-title="${esc(test.title)}">${ICON.edit}</button></h1>
-  <p class="page-sub">${questions.length} question(s) in this test.</p>
-  <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-question" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.plus} Add Question</button>
-  ${questions.length===0 ? emptyBlock('No questions yet.') :
-    questions.map((q,i)=>`
-      <div class="card">
-        <div class="row-between" style="align-items:flex-start;">
-          <div style="font-weight:600;font-size:14.5px;flex:1;">Q${i+1}. ${esc(q.text)}</div>
-          <div style="display:flex;gap:6px;">
-            <button class="icon-btn" data-action="edit-question" data-id="${q.id}" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.edit}</button>
-            <button class="icon-btn" data-action="delete-question" data-id="${q.id}" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.trash}</button>
-          </div>
-        </div>
-        <div style="margin-top:10px;">
-          ${q.options.map((opt,oi)=>`<div class="option ${oi===q.correctIndex?'correct':''}" style="margin-bottom:6px;padding:8px 12px;"><span class="letter">${letterOf(oi)}</span><span style="font-size:13.5px;">${esc(opt)}</span></div>`).join('')}
-        </div>
-      </div>`).join('')}`;
-}
-
-async function renderAdminUsers(){
-  const users = (await Data.getAllUsers()).filter(u=>!u.isAdmin);
-  return `
-  <h1 class="page-title">Manage Users</h1>
-  <p class="page-sub">Everyone who has signed in to STEP.</p>
-  ${users.length===0 ? emptyBlock('No users have signed up yet.') : `
-  <table class="simple">
-    <thead><tr><th>Number</th><th>Name</th><th>Joined</th></tr></thead>
-    <tbody>
-      ${users.map(u=>`<tr><td class="mono">#${esc(u.number)}</td><td>${esc(u.name)}</td><td class="muted">${fmtDateTime(u.createdAt)}</td></tr>`).join('')}
-    </tbody>
-  </table>`}`;
-}
-
-/* ============ MISC ACTIONS ============ */
-async function deleteRefAction(kind, qid){
-  if(kind==='wrong') await Data.removeWrong(state.user.id, qid);
-  else await Data.removeSaved(state.user.id, qid);
-  render();
-}
-function doLogout(){
-  state.user = null; state.quiz = null; state.menuOpen = false; state.modal = null; state.pendingNumber = null;
-  clearSession();
-  navigate('#/login');
-}
-
-/* ============ ADMIN MODAL OPENERS ============ */
-function openAddSectionModal(){
-  setModal({ type:'textInput', title:'Add Section', label:'Section name', placeholder:'e.g. Cardiology', confirmLabel:'Add', purpose:'addSection' });
-}
-function openEditSectionModal(id, name){
-  setModal({ type:'textInput', title:'Rename Section', label:'Section name', value:name, confirmLabel:'Save', purpose:'editSection', id });
-}
-function openDeleteSectionConfirm(id, name){
-  setModal({ type:'confirm', title:'Delete Section', message:`Delete "${name}" and all its tests & questions? This can't be undone.`, confirmLabel:'Delete', purpose:'deleteSection', id });
-}
-function openAddTestChoiceModal(sectionId){
-  setModal({ type:'choice', title:'Add Test', options:[{label:'Manual Entry',value:'manual'},{label:'Quick Add (paste text)',value:'quick'}], purpose:'addTestChoice', sectionId });
-}
-function openEditTestTitleModal(id, sectionId, title){
-  setModal({ type:'textInput', title:'Rename Test', label:'Test title', value:title, confirmLabel:'Save', purpose:'editTestTitle', id, sectionId });
-}
-function openDeleteTestConfirm(id, sectionId, title){
-  setModal({ type:'confirm', title:'Delete Test', message:`Delete "${title}" and all its questions? This can't be undone.`, confirmLabel:'Delete', purpose:'deleteTest', id, sectionId });
-}
-function openQuestionModal(testId, sectionId){
-  setModal({ type:'question', question:null, editId:null, testId, sectionId });
-}
-async function openEditQuestionModal(id, testId, sectionId){
-  const snap = await getDoc(doc(questionsCol,id));
-  if(!snap.exists()) return;
-  setModal({ type:'question', question:{id:snap.id,...snap.data()}, editId:id, testId, sectionId });
-}
-function openDeleteQuestionConfirm(id, testId, sectionId){
-  setModal({ type:'confirm', title:'Delete Question', message:'Delete this question permanently?', confirmLabel:'Delete', purpose:'deleteQuestion', id, testId, sectionId });
-}
-
-/* ============ MODAL SUBMIT HANDLERS ============ */
-async function handleModalConfirm(){
-  const m = state.modal;
-  if(!m) return;
-  if(m.type==='textInput'){
-    const input = document.getElementById('modal-input-val');
-    const val = input ? input.value.trim() : '';
-    if(!val) return;
-    if(m.purpose==='addSection'){ await Data.addSection(val); }
-    else if(m.purpose==='editSection'){ await Data.updateSection(m.id, val); }
-    else if(m.purpose==='editTestTitle'){ await Data.updateTestTitle(m.id, val); }
-    else if(m.purpose==='createTestManual'){
-      const testId = await Data.addTest(m.sectionId, val);
-      state.modal = null;
-      navigate(`#/admin/sections/${m.sectionId}/tests/${testId}`);
-      return;
-    }
-  } else if(m.type==='confirm'){
-    if(m.purpose==='deleteSection') await Data.deleteSection(m.id);
-    else if(m.purpose==='deleteTest') await Data.deleteTest(m.id);
-    else if(m.purpose==='deleteQuestion') await Data.deleteQuestion(m.id);
-  }
-  state.modal = null;
-  render();
-}
-async function handleModalChoice(value){
-  const m = state.modal;
-  if(m.purpose==='addTestChoice'){
-    if(value==='manual'){
-      setModal({ type:'textInput', title:'New Test', label:'Test title', placeholder:'e.g. Test 1', confirmLabel:'Create', purpose:'createTestManual', sectionId:m.sectionId });
-    } else {
-      setModal({ type:'quickAdd', purpose:'createTestQuick', sectionId:m.sectionId });
-    }
-  }
-}
-async function handleQuickAddSubmit(){
-  const m = state.modal;
-  const ta = document.getElementById('modal-quickadd');
-  const parsed = parseQuickAdd(ta ? ta.value : '');
-  if(!parsed.questions.length){ alert('No questions detected. Check the format and try again.'); return; }
-  const title = parsed.title || 'Untitled Test';
-  const testId = await Data.addTest(m.sectionId, title);
-  const valid = parsed.questions.filter(q => q.correctIndex >= 0 && q.options.length >= 2);
-  await Promise.all(valid.map(q => Data.addQuestion(testId, m.sectionId, q)));
-  state.modal = null;
-  navigate(`#/admin/sections/${m.sectionId}/tests/${testId}`);
-}
-async function handleQuestionSubmit(editId){
-  const m = state.modal;
-  const text = document.getElementById('qm-text').value.trim();
-  const rawOptions = [0,1,2,3].map(i => document.getElementById('qm-opt-'+i).value.trim());
-  const radio = document.querySelector('input[name="qm-correct"]:checked');
-  if(!text || !rawOptions[0] || !rawOptions[1] || !rawOptions[2] || !radio){
-    alert('Please fill in the question, at least options A–C, and select the correct answer.');
-    return;
-  }
-  const options = rawOptions[3] ? rawOptions : rawOptions.slice(0,3);
-  const correctIndex = parseInt(radio.value, 10);
-  if(correctIndex >= options.length){
-    alert('The selected correct answer must be one of the filled-in options.');
-    return;
-  }
-  if(editId){
-    await Data.updateQuestion(editId, { text, options, correctIndex });
-  } else {
-    await Data.addQuestion(m.testId, m.sectionId, { text, options, correctIndex });
-  }
-  state.modal = null;
-  render();
-}
-
-/* ============ GLOBAL EVENT BINDING (once) ============ */
-async function onAppClick(e){
-  const t = e.target.closest('[data-action]');
-  if(!t) return;
-  e.preventDefault();
-  const action = t.dataset.action;
-  switch(action){
-    case 'go': navigate(t.dataset.hash); break;
-    case 'back': goBack(); break;
-    case 'logout': doLogout(); break;
-    case 'open-menu': state.menuOpen = true; render(); break;
-    case 'close-menu': state.menuOpen = false; render(); break;
-    case 'menu-backdrop': if(e.target === t){ state.menuOpen = false; render(); } break;
-    case 'modal-backdrop': if(e.target === t) closeModal(); break;
-    case 'modal-cancel': closeModal(); break;
-
-    case 'delete-ref': await deleteRefAction(t.dataset.kind, t.dataset.qid); break;
-    case 'review-list': await startReviewListAction(t.dataset.source); break;
-
-    case 'start-quiz': await startQuizAction(t.dataset.scope, t.dataset.sectionId, t.dataset.testId); break;
-    case 'select-option': selectOption(parseInt(t.dataset.index,10)); break;
-    case 'toggle-save': await toggleSave(); break;
-    case 'toggle-review': toggleReview(); break;
-    case 'goto-question': gotoQuestion(parseInt(t.dataset.index,10)); break;
-    case 'quiz-next': quizNext(); break;
-    case 'quiz-prev': quizPrev(); break;
-    case 'quiz-submit': quizSubmitClicked(); break;
-    case 'quiz-submit-final': await finalizeQuiz(); break;
-    case 'review-jump': { state.modal = null; gotoQuestion(parseInt(t.dataset.index,10)); break; }
-
-    case 'add-section': openAddSectionModal(); break;
-    case 'edit-section': openEditSectionModal(t.dataset.id, t.dataset.name); break;
-    case 'delete-section': openDeleteSectionConfirm(t.dataset.id, t.dataset.name); break;
-    case 'add-test': openAddTestChoiceModal(t.dataset.sectionId); break;
-    case 'edit-test-title': openEditTestTitleModal(t.dataset.id, t.dataset.sectionId, t.dataset.title); break;
-    case 'delete-test': openDeleteTestConfirm(t.dataset.id, t.dataset.sectionId, t.dataset.title); break;
-    case 'add-question': openQuestionModal(t.dataset.testId, t.dataset.sectionId); break;
-    case 'edit-question': await openEditQuestionModal(t.dataset.id, t.dataset.testId, t.dataset.sectionId); break;
-    case 'delete-question': openDeleteQuestionConfirm(t.dataset.id, t.dataset.testId, t.dataset.sectionId); break;
-
-    case 'modal-confirm': await handleModalConfirm(); break;
-    case 'modal-choice': await handleModalChoice(t.dataset.value); break;
-    case 'modal-quickadd-submit': await handleQuickAddSubmit(); break;
-    case 'modal-question-submit': await handleQuestionSubmit(t.dataset.editId || null); break;
-  }
-}
-async function onAppSubmit(e){
-  if(e.target.id === 'login-form'){
-    e.preventDefault();
-    const raw = document.getElementById('login-number').value.trim();
-    if(!raw) return;
-    const number = raw.replace(/\s+/g,'');
-    if(number === ADMIN_NUMBER){
-      let u = await Data.getUser(ADMIN_NUMBER);
-      if(!u) u = await Data.createUser(ADMIN_NUMBER, 'Admin', true);
-      state.user = u;
-      saveSession(u);
-      navigate('#/admin/home');
-    } else {
-      let u = await Data.getUser(number);
-      if(u){ state.user = u; saveSession(u); navigate('#/user/home'); }
-      else { state.pendingNumber = number; navigate('#/name'); }
-    }
-  } else if(e.target.id === 'name-form'){
-    e.preventDefault();
-    const name = document.getElementById('name-input').value.trim();
-    if(!name) return;
-    const u = await Data.createUser(state.pendingNumber, name, false);
-    state.user = u; state.pendingNumber = null;
-    saveSession(u);
-    navigate('#/user/home');
-  }
-}
-function saveSession(u){
-  try{ localStorage.setItem('step_session', JSON.stringify({ number: u.number })); }catch(e){}
-}
-function clearSession(){
+async function sessionClear(){
   try{ localStorage.removeItem('step_session'); }catch(e){}
 }
 
-async function initApp(){
-  let saved = null;
-  try{ saved = JSON.parse(localStorage.getItem('step_session') || 'null'); }catch(e){}
-  if(saved && saved.number){
-    try{
-      const u = await Data.getUser(saved.number);
-      if(u){
-        state.user = u;
-        if(!location.hash || location.hash==='#/login' || location.hash==='#/name'){
-          location.hash = u.isAdmin ? '#/admin/home' : '#/user/home';
-        }
-      } else {
-        clearSession();
-      }
-    }catch(e){ clearSession(); }
+function offlineBlobKey(){ return 'step_offline_' + state.userNumber; }
+function offlineToggleKey(){ return 'step_offline_on_' + state.userNumber; }
+function offlineEnabled(){ return state.userNumber ? localStorage.getItem(offlineToggleKey()) === '1' : false; }
+function setOfflineEnabled(v){ if(state.userNumber) localStorage.setItem(offlineToggleKey(), v?'1':'0'); }
+
+function getOfflineBlob(){
+  if(!state.userNumber) return null;
+  try{ const v = localStorage.getItem(offlineBlobKey()); return v ? JSON.parse(v) : null; }catch(e){ return null; }
+}
+
+function saveOfflineBlob(b){
+  if(!state.userNumber) return false;
+  try{
+    b.syncedAt = Date.now();
+    localStorage.setItem(offlineBlobKey(), JSON.stringify(b));
+    return true;
+  }catch(e){
+    console.error('Offline save error', e);
+    return false;
   }
-  if(!location.hash) location.hash = '#/login';
+}
+
+async function downloadOfflineData(){
+  const secSnap = await db.collection('sections').orderBy('createdAt','asc').get();
+  const sections = secSnap.docs.map(d => ({id: d.id, ...d.data()}));
+  
+  const testSnap = await db.collection('tests').get();
+  const tests = testSnap.docs.map(d => ({id: d.id, ...d.data()}));
+  
+  const qSnap = await db.collection('questions').get();
+  const questions = qSnap.docs.map(d => ({id: d.id, ...d.data()}));
+  
+  const ok = saveOfflineBlob({ sections, tests, questions });
+  if(!ok) throw new Error('تعذّر حفظ النسخة محلياً');
+  return { sections, tests, questions };
+}
+
+async function onToggleOffline(v){
+  setOfflineEnabled(v);
+  if(v){
+    toast('جارِ تنزيل بيانات أقسام واختبارات ستيب...');
+    try{
+      await downloadOfflineData();
+      toast('تم التنزيل للعمل بدون اتصال بنجاح ✓');
+    }catch(e){
+      console.error(e);
+      toast('تعذّر تنزيل البيانات، تحقّق من الاتصال بالإنترنت');
+    }
+  } else {
+    toast('تم إيقاف وضع عدم الاتصال');
+  }
   render();
 }
 
-app.addEventListener('click', onAppClick);
-app.addEventListener('submit', onAppSubmit);
-window.addEventListener('hashchange', render);
-initApp();
+async function manualRefreshOffline(){
+  toggleDrawer(false);
+  toast('جارِ تحديث البيانات...');
+  try{
+    await downloadOfflineData();
+    toast('تم تحديث المحتوى بنجاح ✓');
+  }catch(e){
+    toast('تعذّر الاتصال بالشبكة');
+  }
+  render();
+}
+
+async function findOrCreateUser(number){
+  const isAdmin = number === '330';
+  const ref = db.collection('users').doc(number);
+  const snap = await ref.get();
+  if(!snap.exists){
+    await ref.set({ number, isAdmin, createdAt: FieldValue.serverTimestamp() });
+  }
+  return { number, isAdmin };
+}
+
+async function loadSections(force){
+  if(state.sectionsLoaded && !force) return state.sections;
+  const snap = await db.collection('sections').orderBy('number','asc').get();
+  state.sections = snap.docs.map(d => ({id: d.id, ...d.data()}));
+  state.sectionsLoaded = true;
+  return state.sections;
+}
+
+async function addSection(name, number){
+  const num = parseInt(number) || (state.sections.length + 1);
+  await db.collection('sections').add({ name, number: num, createdAt: FieldValue.serverTimestamp() });
+  state.sectionsLoaded = false;
+}
+
+async function updateSection(id, name, number){
+  const num = parseInt(number) || 1;
+  await db.collection('sections').doc(id).update({ name, number: num });
+  state.sectionsLoaded = false;
+}
+
+async function deleteSection(id){
+  const testsSnap = await db.collection('tests').where('sectionId','==',id).get();
+  const batch = db.batch();
+  for(let td of testsSnap.docs){
+    const qSnap = await db.collection('questions').where('testId','==',td.id).get();
+    qSnap.docs.forEach(q => batch.delete(q.ref));
+    batch.delete(td.ref);
+  }
+  batch.delete(db.collection('sections').doc(id));
+  await batch.commit();
+  state.sectionsLoaded = false;
+}
+
+/* Tests operations */
+async function getTestsBySection(sectionId){
+  const snap = await db.collection('tests').where('sectionId','==',sectionId).get();
+  let list = snap.docs.map(d => ({id: d.id, ...d.data()}));
+  return list.sort((a,b) => (a.number ?? a.order ?? 0) - (b.number ?? b.order ?? 0));
+}
+
+async function addTest(sectionId, name, number){
+  const existing = await getTestsBySection(sectionId);
+  const num = parseInt(number) || (existing.length + 1);
+  await db.collection('tests').add({
+    sectionId, name, number: num, order: num, createdAt: FieldValue.serverTimestamp()
+  });
+}
+
+async function updateTest(id, name, number){
+  const num = parseInt(number) || 1;
+  await db.collection('tests').doc(id).update({ name, number: num, order: num });
+}
+
+async function updateTestsOrder(testsList){
+  const batch = db.batch();
+  testsList.forEach((t, idx) => {
+    const ref = db.collection('tests').doc(t.id);
+    batch.update(ref, { number: idx + 1, order: idx + 1 });
+  });
+  await batch.commit();
+}
+
+async function deleteTest(id){
+  const qSnap = await db.collection('questions').where('testId','==',id).get();
+  const batch = db.batch();
+  qSnap.docs.forEach(q => batch.delete(q.ref));
+  batch.delete(db.collection('tests').doc(id));
+  await batch.commit();
+}
+
+/* Questions operations */
+async function getQuestionsByTest(testId){
+  const snap = await db.collection('questions').where('testId','==',testId).get();
+  let list = snap.docs.map(d => ({id: d.id, ...d.data()}));
+  return list.sort((a,b) => (a.number ?? a.order ?? 0) - (b.number ?? b.order ?? 0));
+}
+
+async function addQuestion(testId, sectionId, qData){
+  const existing = await getQuestionsByTest(testId);
+  const num = parseInt(qData.number) || (existing.length + 1);
+  await db.collection('questions').add({
+    testId, sectionId, ...qData, number: num, order: num, createdAt: FieldValue.serverTimestamp()
+  });
+}
+
+async function updateQuestion(id, qData){
+  const num = parseInt(qData.number) || 1;
+  await db.collection('questions').doc(id).update({
+    ...qData, number: num, order: num
+  });
+}
+
+async function updateQuestionsOrder(questionsList){
+  const batch = db.batch();
+  questionsList.forEach((q, idx) => {
+    const ref = db.collection('questions').doc(q.id);
+    batch.update(ref, { number: idx + 1, order: idx + 1 });
+  });
+  await batch.commit();
+}
+
+async function deleteQuestion(id){
+  await db.collection('questions').doc(id).delete();
+  await db.collection('users').doc(state.userNumber||'').collection('wrong').doc(id).delete().catch(()=>{});
+}
+
+/* Attempts & stats */
+async function addAttempt(userNumber, attempt){
+  await db.collection('users').doc(userNumber).collection('attempts').add({
+    ...attempt, createdAt: FieldValue.serverTimestamp()
+  });
+}
+
+async function getAttempts(userNumber){
+  const snap = await db.collection('users').doc(userNumber).collection('attempts').orderBy('createdAt','desc').get();
+  return snap.docs.map(d => ({id: d.id, ...d.data()}));
+}
+
+async function setWrong(userNumber, q){
+  await db.collection('users').doc(userNumber).collection('wrong').doc(q.id).set({
+    questionId: q.id, testId: q.testId, sectionId: q.sectionId, addedAt: FieldValue.serverTimestamp()
+  });
+}
+
+async function clearWrong(userNumber, questionId){
+  await db.collection('users').doc(userNumber).collection('wrong').doc(questionId).delete();
+}
+
+async function getWrongList(userNumber){
+  const snap = await db.collection('users').doc(userNumber).collection('wrong').orderBy('addedAt','desc').get();
+  return snap.docs.map(d => d.data());
+}
+
+async function toggleSaved(userNumber, q, save){
+  const ref = db.collection('users').doc(userNumber).collection('saved').doc(q.id);
+  if(save){
+    await ref.set({ questionId: q.id, testId: q.testId, sectionId: q.sectionId, addedAt: FieldValue.serverTimestamp() });
+  } else {
+    await ref.delete();
+  }
+}
+
+async function getSavedList(userNumber){
+  const snap = await db.collection('users').doc(userNumber).collection('saved').orderBy('addedAt','desc').get();
+  return snap.docs.map(d => d.data());
+}
+
+async function isSaved(userNumber, questionId){
+  const d = await db.collection('users').doc(userNumber).collection('saved').doc(questionId).get();
+  return d.exists;
+}
+
+async function userStats(userNumber){
+  const attempts = await getAttempts(userNumber);
+  let totalScore = 0, totalQ = 0, totalTime = 0;
+  attempts.forEach(a => {
+    totalScore += a.score || 0;
+    totalQ += a.total || 0;
+    totalTime += a.durationSeconds || 0;
+  });
+  return {
+    totalAttempts: attempts.length,
+    totalScore, totalQ,
+    avgPercent: totalQ ? Math.round((totalScore/totalQ)*100) : 0,
+    totalTime
+  };
+}
+
+function svgIcon(path, extra=''){
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${path}</svg>`;
+}
+function iconMenu(){ return svgIcon('<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>'); }
+function iconLogout(){ return svgIcon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>'); }
+function iconHome(){ return svgIcon('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'); }
+function iconGrid(){ return svgIcon('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>'); }
+function iconX(){ return svgIcon('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'); }
+function iconBookmark(filled){ return svgIcon('<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>', filled?'fill="currentColor"':''); }
+function iconClock(){ return svgIcon('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'); }
+function iconTrash(){ return svgIcon('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'); }
+function iconEdit(){ return svgIcon('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>'); }
+function iconPlus(){ return svgIcon('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'); }
+function iconClose(){ return svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'); }
+function iconChev(){ return svgIcon('<polyline points="15 18 9 12 15 6"/>'); }
+function iconBack(){ return svgIcon('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'); }
+function iconDownload(){ return svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'); }
+function iconRefresh(){ return svgIcon('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>'); }
+function iconDragHandle(){ return svgIcon('<line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="16" x2="20" y2="16"/>'); }
+
+function renderTopbar(){
+  const showBack = state.route.name !== 'home' && state.route.name !== 'login';
+  return `
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:8px;">
+      ${state.userNumber ? `<button class="icon-btn" onclick="doLogout()" title="تسجيل الخروج">${iconLogout()}</button>` : ''}
+      ${showBack ? `<button class="icon-btn" onclick="goBack()" title="رجوع">${iconBack()}</button>` : ''}
+    </div>
+    <div class="topbar-title">${state.isAdmin ? 'لوحة المشرف - STEP' : 'منصة STEP'}</div>
+    ${state.userNumber ? `<button class="icon-btn" onclick="toggleDrawer(true)" title="القائمة">${iconMenu()}</button>` : '<div></div>'}
+  </div>`;
+}
+
+function renderDrawer(){
+  const userItems = `
+    <a class="drawer-item ${state.route.name==='sections'?'active':''}" onclick="nav('sections')"><span class="ic">${iconGrid()}</span> الأقسام والاختبارات</a>
+    <a class="drawer-item ${state.route.name==='wrong'?'active':''}" onclick="nav('wrong')"><span class="ic">${iconX()}</span> الأسئلة الخاطئة</a>
+    <a class="drawer-item ${state.route.name==='saved'?'active':''}" onclick="nav('saved')"><span class="ic">${iconBookmark()}</span> الأسئلة المحفوظة</a>
+    <a class="drawer-item ${state.route.name==='history'?'active':''}" onclick="nav('history')"><span class="ic">${iconClock()}</span> سجل الاختبارات</a>
+    <a class="drawer-item ${state.route.name==='home'?'active':''}" onclick="nav('home')"><span class="ic">${iconHome()}</span> الرئيسية</a>
+    <div class="divider" style="margin:6px 20px;"></div>
+    <div class="drawer-item" style="justify-content:space-between;cursor:default;">
+      <span style="display:flex;align-items:center;gap:12px;"><span class="ic">${iconDownload()}</span> تنزيل للعمل بدون اتصال</span>
+      <label class="switch"><input type="checkbox" ${offlineEnabled()?'checked':''} onchange="onToggleOffline(this.checked)"><span class="switch-slider"></span></label>
+    </div>
+    ${offlineEnabled()?
+      `<a class="drawer-item" onclick="manualRefreshOffline()"><span class="ic">${iconRefresh()}</span> تحديث البيانات المحفوظة</a>` : ''}
+    ${offlineEnabled()?
+      `<a class="drawer-item ${state.route.name==='offline-sections'?'active':''}" onclick="nav('offline-sections')"><span class="ic">${iconGrid()}</span> المحتوى المحفوظ (بدون اتصال)</a>` : ''}
+  `;
+  const adminItems = `
+    <a class="drawer-item ${state.route.name==='admin-sections'?'active':''}" onclick="nav('admin-sections')"><span class="ic">${iconGrid()}</span> إدارة أقسام واختبارات STEP</a>
+    <a class="drawer-item ${state.route.name==='home'?'active':''}" onclick="nav('home')"><span class="ic">${iconHome()}</span> الرئيسية</a>
+  `;
+  return `
+  <div class="overlay ${state.drawerOpen?'open':''}" onclick="toggleDrawer(false)"></div>
+  <div class="drawer ${state.drawerOpen?'open':''}">
+    <div class="drawer-head">
+      <div class="num">${state.userNumber||''}</div>
+      <div class="tag">${state.isAdmin?'مشرف المنصة':'حساب الطالب'}</div>
+    </div>
+    ${state.isAdmin ? adminItems : userItems}
+  </div>`;
+}
+
+function toggleDrawer(v){ state.drawerOpen = v; render(); }
+
+async function doLogout(){
+  await sessionClear();
+  state = { userNumber: null, isAdmin: false, sections: [], sectionsLoaded: false, drawerOpen: false, route: { name: 'login', params: {} }, history: [], quiz: null };
+  render();
+}
+
+function renderLogin(){
+  return `
+  <div style="min-height:90vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;">
+    <div style="font-family:'Tajawal';font-weight:900;font-size:46px;letter-spacing:2px;color:var(--accent);">منصة STEP</div>
+    <div style="color:var(--text-dim);margin:10px 0 34px;font-size:14px;">اختبار الكفاية في اللغة الإنجليزية - أسلوب محاكاة شامل</div>
+    <div style="width:100%;max-width:340px;">
+      <input type="text" inputmode="numeric" id="loginInput" placeholder="أدخل رقم المستخدم" style="text-align:center;font-size:18px;">
+      <button class="btn btn-primary" style="padding:14px;" onclick="doLogin()">دخول المنصة</button>
+      <div style="font-size:12px;color:var(--text-faint);margin-top:14px;">تسجيل الدخول برقم 330 يمنح صلاحيات المشرف.</div>
+    </div>
+  </div>`;
+}
+
+async function doLogin(){
+  const val = document.getElementById('loginInput').value.trim();
+  if(!val){ toast('يرجى إدخال رقم المستخدم'); return; }
+  document.getElementById('app').innerHTML = `<div class="loader">جارِ تسجيل الدخول...</div>`;
+  try{
+    const u = await findOrCreateUser(val);
+    state.userNumber = u.number;
+    state.isAdmin = u.isAdmin;
+    await sessionSave(u.number, u.isAdmin);
+    nav('home');
+  }catch(e){
+    console.error(e);
+    toast('تعذّر تسجيل الدخول');
+    render();
+  }
+}
+
+async function renderHome(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  if(state.isAdmin){
+    const secSnap = await db.collection('sections').get();
+    const testSnap = await db.collection('tests').get();
+    const qSnap = await db.collection('questions').get();
+    cont.innerHTML = `
+      <div class="section-title">لوحة المشرف - STEP</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num">${secSnap.size}</div><div class="stat-label">الأقسام الرئيسية</div></div>
+        <div class="stat-card"><div class="stat-num">${testSnap.size}</div><div class="stat-label">إجمالي الاختبارات</div></div>
+        <div class="stat-card"><div class="stat-num">${qSnap.size}</div><div class="stat-label">الأسئلة المضافة</div></div>
+      </div>
+      <button class="btn btn-primary" onclick="nav('admin-sections')">${iconGrid()} إدارة الأقسام والاختبارات والأسئلة</button>
+    `;
+  } else {
+    const s = await userStats(state.userNumber);
+    cont.innerHTML = `
+      <div class="section-title">مرحباً بك، طالب STEP</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num">${s.totalAttempts}</div><div class="stat-label">عدد الاختبارات المُنجزة</div></div>
+        <div class="stat-card"><div class="stat-num">${s.avgPercent}%</div><div class="stat-label">متوسط النسبة المئوية</div></div>
+      </div>
+      <div class="stat-card" style="margin-bottom:16px;"><div class="stat-num">${fmtDuration(s.totalTime)}</div><div class="stat-label">إجمالي وقت التدريب</div></div>
+      <button class="btn btn-primary" onclick="nav('sections')">${iconGrid()} استعراض أقسام اختبار STEP</button>
+    `;
+  }
+}
+
+async function renderUserSections(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ تحميل الأقسام...</div>`;
+  const sections = await loadSections();
+  if(sections.length === 0){
+    cont.innerHTML = `<div class="empty">لا توجد أقسام مضافة بعد.</div>`;
+    return;
+  }
+  
+  let html = `<div class="section-title">أقسام اختبار STEP</div>`;
+  for(let sec of sections){
+    const tests = await getTestsBySection(sec.id);
+    html += `
+      <div class="card" style="margin-bottom:18px;">
+        <div style="font-weight:800;font-size:18px;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+          <span>القسم ${sec.number}: ${escapeHtml(sec.name)}</span>
+          <span class="chip">${tests.length} اختبارات</span>
+        </div>
+        ${tests.length === 0 ? `<div style="font-size:13px;color:var(--text-faint);">لا توجد اختبارات في هذا القسم بعد.</div>` : ''}
+        ${tests.map(t => `
+          <div class="list-item" onclick="startTest('${t.id}', '${escapeHtml(t.name).replace(/'/g,"\\'")}')">
+            <div>
+              <div class="title">اختبار رقم ${t.number}: ${escapeHtml(t.name)}</div>
+            </div>
+            <div>${iconChev()}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  cont.innerHTML = html;
+}
+
+async function renderAdminSections(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const sections = await loadSections(true);
+  
+  cont.innerHTML = `
+    <div class="section-title">إدارة أقسام STEP</div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="openAddSectionModal()">${iconPlus()} إضافة قسم جديد</button>
+    ${sections.length === 0 ? `<div class="empty">لا توجد أقسام. اضغط إضافة قسم للبدء.</div>` : ''}
+    ${sections.map(s => `
+      <div class="list-item">
+        <div style="flex:1;" onclick="nav('admin-tests', {sectionId:'${s.id}', sectionName:'${escapeHtml(s.name).replace(/'/g,"\\'")}'})">
+          <div class="title">القسم ${s.number}: ${escapeHtml(s.name)}</div>
+          <div class="sub">اضغط لاستعراض وإدارة الاختبارات داخله</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="icon-action" title="تعديل" onclick="openEditSectionModal('${s.id}', '${escapeHtml(s.name).replace(/'/g,"\\'")}', ${s.number})">${iconEdit()}</button>
+          <button class="icon-action danger" title="حذف" onclick="confirmDeleteSection('${s.id}')">${iconTrash()}</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function openAddSectionModal(){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">إضافة قسم جديد</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <label>اسم القسم (مثل: Listening / Reading / Structure)</label>
+    <input type="text" id="secNameInput" placeholder="أدخل اسم القسم">
+    <label>رقم القسم / الترتيب</label>
+    <input type="number" id="secNumInput" value="${state.sections.length + 1}">
+    <button class="btn btn-primary" onclick="doAddSection()">حفظ القسم</button>
+  `, true);
+}
+
+async function doAddSection(){
+  const name = document.getElementById('secNameInput').value.trim();
+  const num = document.getElementById('secNumInput').value.trim();
+  if(!name){ toast('يرجى إدخال اسم القسم'); return; }
+  closeModal();
+  await addSection(name, num);
+  toast('تمت إضافة القسم');
+  renderAdminSections();
+}
+
+function openEditSectionModal(id, name, num){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">تعديل القسم</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <label>اسم القسم</label>
+    <input type="text" id="secNameEdit" value="${escapeHtml(name)}">
+    <label>رقم القسم / الترتيب</label>
+    <input type="number" id="secNumEdit" value="${num}">
+    <button class="btn btn-primary" onclick="doUpdateSection('${id}')">حفظ التغييرات</button>
+  `, true);
+}
+
+async function doUpdateSection(id){
+  const name = document.getElementById('secNameEdit').value.trim();
+  const num = document.getElementById('secNumEdit').value.trim();
+  if(!name){ toast('يرجى إدخال اسم القسم'); return; }
+  closeModal();
+  await updateSection(id, name, num);
+  toast('تم تعديل القسم');
+  renderAdminSections();
+}
+
+function confirmDeleteSection(id){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">حذف القسم؟</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <p class="sub">سيتم حذف هذا القسم وجميع الاختبارات والأسئلة التابعة له نهائياً!</p>
+    <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="doDeleteSection('${id}')">حذف نهائي</button></div>
+  `, true);
+}
+
+async function doDeleteSection(id){
+  closeModal();
+  await deleteSection(id);
+  toast('تم حذف القسم');
+  renderAdminSections();
+}
+
+async function renderAdminTests(sectionId, sectionName){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ تحميل الاختبارات...</div>`;
+  const tests = await getTestsBySection(sectionId);
+  
+  cont.innerHTML = `
+    <div class="section-title">اختبارات: ${escapeHtml(sectionName)}</div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="openAddTestModal('${sectionId}', ${tests.length+1})">${iconPlus()} إضافة اختبار جديد</button>
+    <div style="font-size:12.5px;color:var(--text-faint);margin-bottom:12px;">يمكنك سحب الاختبارات من الأيقونة (☰) لإعادة ترتيبها وسيتغير رقمها تلقائياً.</div>
+    <div id="testsContainer">
+      ${tests.length === 0 ? `<div class="empty">لا توجد اختبارات في هذا القسم بعد.</div>` : ''}
+      ${tests.map((t, idx) => `
+        <div class="list-item" data-id="${t.id}" data-index="${idx}" draggable="true">
+          <div class="drag-handle" title="اسحب للترتيب">${iconDragHandle()}</div>
+          <div style="flex:1;cursor:pointer;" onclick="nav('admin-questions', {testId:'${t.id}', testName:'${escapeHtml(t.name).replace(/'/g,"\\'")}', sectionId:'${sectionId}'})">
+            <div class="title">اختبار رقم ${t.number}: ${escapeHtml(t.name)}</div>
+            <div class="sub">اضغط لإدارة أسئلة هذا الاختبار</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="icon-action" title="تعديل" onclick="openEditTestModal('${t.id}', '${escapeHtml(t.name).replace(/'/g,"\\'")}', ${t.number})">${iconEdit()}</button>
+            <button class="icon-action danger" title="حذف" onclick="confirmDeleteTest('${t.id}', '${sectionId}', '${escapeHtml(sectionName).replace(/'/g,"\\'")}')">${iconTrash()}</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  
+  setupDragAndDrop('testsContainer', tests, async (reorderedList) => {
+    await updateTestsOrder(reorderedList);
+    toast('تم إعادة ترتيب الاختبارات وتحديث أرقامها تلقائياً ✓');
+    renderAdminTests(sectionId, sectionName);
+  });
+}
+
+function openAddTestModal(sectionId, defaultNum){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">إضافة اختبار جديد</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <label>اسم الاختبار</label>
+    <input type="text" id="testNameInput" placeholder="مثال: Test 1 - Listening Comprehension">
+    <label>رقم الاختبار (يحدد ترتيب العرض)</label>
+    <input type="number" id="testNumInput" value="${defaultNum}">
+    <button class="btn btn-primary" onclick="doAddTest('${sectionId}')">حفظ الاختبار</button>
+  `, true);
+}
+
+async function doAddTest(sectionId){
+  const name = document.getElementById('testNameInput').value.trim();
+  const num = document.getElementById('testNumInput').value.trim();
+  if(!name){ toast('أدخل اسم الاختبار'); return; }
+  closeModal();
+  await addTest(sectionId, name, num);
+  toast('تمت إضافة الاختبار');
+  renderAdminTests(sectionId, state.route.params.sectionName);
+}
+
+function openEditTestModal(id, name, num){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">تعديل الاختبار</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <label>اسم الاختبار</label>
+    <input type="text" id="testNameEdit" value="${escapeHtml(name)}">
+    <label>رقم الاختبار (ترتيبه داخل القسم)</label>
+    <input type="number" id="testNumEdit" value="${num}">
+    <button class="btn btn-primary" onclick="doUpdateTest('${id}')">حفظ التغييرات</button>
+  `, true);
+}
+
+async function doUpdateTest(id){
+  const name = document.getElementById('testNameEdit').value.trim();
+  const num = document.getElementById('testNumEdit').value.trim();
+  if(!name){ toast('أدخل اسم الاختبار'); return; }
+  closeModal();
+  await updateTest(id, name, num);
+  toast('تم تحديث بيانات الاختبار بنجاح');
+  renderAdminTests(state.route.params.sectionId, state.route.params.sectionName);
+}
+
+function confirmDeleteTest(id, sectionId, sectionName){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">حذف الاختبار؟</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <p class="sub">سيتم حذف هذا الاختبار وجميع الأسئلة المندرجة تحته!</p>
+    <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="doDeleteTest('${id}', '${sectionId}', '${sectionName}')">حذف نهائي</button></div>
+  `, true);
+}
+
+async function doDeleteTest(id, sectionId, sectionName){
+  closeModal();
+  await deleteTest(id);
+  toast('تم حذف الاختبار');
+  renderAdminTests(sectionId, sectionName);
+}
+
+async function renderAdminQuestions(testId, testName, sectionId){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ تحميل الأسئلة...</div>`;
+  const questions = await getQuestionsByTest(testId);
+  
+  cont.innerHTML = `
+    <div class="section-title">أسئلة: ${escapeHtml(testName)}</div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="openQuestionModal('${testId}', '${sectionId}', null, ${questions.length+1})">${iconPlus()} إضافة سؤال جديد</button>
+    <div style="font-size:12.5px;color:var(--text-faint);margin-bottom:12px;">اسحب أي سؤال من الأيقونة (☰) لإعادة ترتيب الأسئلة داخل الاختبار وتلقائياً سيتغير رقم السؤال.</div>
+    <div id="questionsContainer">
+      ${questions.length === 0 ? `<div class="empty">لا توجد أسئلة بهذا الاختبار بعد.</div>` : ''}
+      ${questions.map((q, idx) => `
+        <div class="list-item" data-id="${q.id}" data-index="${idx}" draggable="true">
+          <div class="drag-handle" title="اسحب للترتيب">${iconDragHandle()}</div>
+          <div style="flex:1;">
+            <div class="title">سؤال رقم ${q.number}: ${escapeHtml(q.question || q.sentence || 'بدون عنوان')}</div>
+            <div class="sub">الخيار الصحيح: (${LETTERS[q.correctIndex || 0]}) ${escapeHtml((q.answers||[])[q.correctIndex||0] || '')}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="icon-action" title="تعديل" onclick="openQuestionModal('${testId}', '${sectionId}', '${q.id}', ${q.number})">${iconEdit()}</button>
+            <button class="icon-action danger" title="حذف" onclick="confirmDeleteQuestion('${q.id}', '${testId}', '${escapeHtml(testName).replace(/'/g,"\\'")}', '${sectionId}')">${iconTrash()}</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  
+  setupDragAndDrop('questionsContainer', questions, async (reorderedList) => {
+    await updateQuestionsOrder(reorderedList);
+    toast('تم إعادة ترتيب الأسئلة وتعديل أرقامها تلقائياً ✓');
+    renderAdminQuestions(testId, testName, sectionId);
+  });
+}
+
+/* Question Modal with Answers Draggable Reordering & Correct Index Selector */
+let currentAnswersFormState = [];
+let currentCorrectIndex = 0;
+
+async function openQuestionModal(testId, sectionId, questionId = null, defaultNum = 1){
+  let qData = {
+    question: '', passage: '', answers: ['الخيار الأول', 'الخيار الثاني', 'الخيار الثالث', 'الخيار الرابع'], correctIndex: 0, number: defaultNum
+  };
+  
+  if(questionId){
+    const doc = await db.collection('questions').doc(questionId).get();
+    if(doc.exists) qData = { id: doc.id, ...doc.data() };
+  }
+  
+  currentAnswersFormState = [...(qData.answers || [])];
+  currentCorrectIndex = qData.correctIndex || 0;
+  
+  const renderFormContent = () => `
+    <div class="modal-head"><h3 style="margin:0;">${questionId ? 'تعديل سؤال' : 'إضافة سؤال'}</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <label>رقم السؤال (ترتيب العرض داخل الاختبار)</label>
+    <input type="number" id="qNumInput" value="${qData.number || defaultNum}">
+    
+    <label>نص قطعة القراءة / الاستماع (اختياري)</label>
+    <textarea id="qPassageInput" placeholder="إذا كان السؤال يتبع قطعة أو نص قراءة/استماع أدخله هنا...">${escapeHtml(qData.passage || '')}</textarea>
+    
+    <label>نص السؤال</label>
+    <textarea id="qTextInput" placeholder="أدخل السؤال هنا...">${escapeHtml(qData.question || qData.sentence || '')}</textarea>
+    
+    <label>الخيارات (يمكنك سحب الخيار من الأيقونة ☰ لإعادة ترتيب خيارات الإجابة تلقائياً):</label>
+    <div id="answersEditList">
+      ${renderAnswersEditListHTML()}
+    </div>
+    
+    <button class="btn btn-outline" style="margin-bottom:12px;" onclick="addNewAnswerChoice()">${iconPlus()} إضافة خيار إضافي</button>
+    
+    <label>الخيار الصحيح:</label>
+    <select id="qCorrectSelect" onchange="currentCorrectIndex=parseInt(this.value); updateAnswersUI();">
+      ${currentAnswersFormState.map((_, idx) => `
+        <option value="${idx}" ${idx === currentCorrectIndex ? 'selected' : ''}>الخيار (${LETTERS[idx] || (idx+1)})</option>
+      `).join('')}
+    </select>
+    
+    <button class="btn btn-primary" onclick="doSaveQuestion('${testId}', '${sectionId}', ${questionId ? `'${questionId}'` : 'null'})">حفظ السؤال</button>
+  `;
+  
+  openModal(renderFormContent(), false);
+  setupAnswerChoicesDragAndDrop();
+}
+
+function renderAnswersEditListHTML(){
+  return currentAnswersFormState.map((ans, idx) => `
+    <div class="answer-edit-item ${idx === currentCorrectIndex ? 'correct-choice' : ''}" data-index="${idx}" draggable="true">
+      <div class="drag-handle" title="سحب الخيار للترتيب">${iconDragHandle()}</div>
+      <span style="font-weight:700;color:var(--accent);width:24px;">${LETTERS[idx] || (idx+1)}</span>
+      <input type="text" value="${escapeHtml(ans)}" oninput="currentAnswersFormState[${idx}]=this.value" style="margin-bottom:0;flex:1;">
+      ${currentAnswersFormState.length > 2 ? `<button class="icon-action danger" style="width:28px;height:28px;" onclick="removeAnswerChoice(${idx})">${iconX()}</button>` : ''}
+    </div>
+  `).join('');
+}
+
+function updateAnswersUI(){
+  const container = document.getElementById('answersEditList');
+  if(container) container.innerHTML = renderAnswersEditListHTML();
+  const select = document.getElementById('qCorrectSelect');
+  if(select){
+    select.innerHTML = currentAnswersFormState.map((_, idx) => `
+      <option value="${idx}" ${idx === currentCorrectIndex ? 'selected' : ''}>الخيار (${LETTERS[idx] || (idx+1)})</option>
+    `).join('');
+  }
+  setupAnswerChoicesDragAndDrop();
+}
+
+function addNewAnswerChoice(){
+  currentAnswersFormState.push('خيار جديد');
+  updateAnswersUI();
+}
+
+function removeAnswerChoice(idx){
+  if(currentAnswersFormState.length <= 2){ toast('يجب أن يحتوي السؤال على خيارين على الأقل'); return; }
+  currentAnswersFormState.splice(idx, 1);
+  if(currentCorrectIndex >= currentAnswersFormState.length) currentCorrectIndex = 0;
+  updateAnswersUI();
+}
+
+function setupAnswerChoicesDragAndDrop(){
+  const container = document.getElementById('answersEditList');
+  if(!container) return;
+  
+  let draggedIdx = null;
+  const items = container.querySelectorAll('.answer-edit-item');
+  
+  items.forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      draggedIdx = parseInt(item.getAttribute('data-index'));
+      e.dataTransfer.effectAllowed = 'move';
+      item.classList.add('dragging');
+    });
+    
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      item.classList.add('drag-over');
+    });
+    
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drag-over');
+    });
+    
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      item.classList.remove('drag-over');
+      const targetIdx = parseInt(item.getAttribute('data-index'));
+      if(draggedIdx !== null && draggedIdx !== targetIdx){
+        const movedAns = currentAnswersFormState.splice(draggedIdx, 1)[0];
+        currentAnswersFormState.splice(targetIdx, 0, movedAns);
+        
+        if(currentCorrectIndex === draggedIdx){
+          currentCorrectIndex = targetIdx;
+        } else if(draggedIdx < currentCorrectIndex && targetIdx >= currentCorrectIndex){
+          currentCorrectIndex--;
+        } else if(draggedIdx > currentCorrectIndex && targetIdx <= currentCorrectIndex){
+          currentCorrectIndex++;
+        }
+        
+        updateAnswersUI();
+      }
+    });
+    
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+    });
+  });
+}
+
+async function doSaveQuestion(testId, sectionId, questionId){
+  const num = parseInt(document.getElementById('qNumInput').value) || 1;
+  const passage = document.getElementById('qPassageInput').value.trim();
+  const text = document.getElementById('qTextInput').value.trim();
+  
+  if(!text){ toast('يرجى إدخال نص السؤال'); return; }
+  
+  const qData = {
+    number: num,
+    passage: passage,
+    question: text,
+    sentence: text,
+    answers: currentAnswersFormState,
+    correctIndex: currentCorrectIndex
+  };
+  
+  closeModal();
+  if(questionId && questionId !== 'null'){
+    await updateQuestion(questionId, qData);
+    toast('تم تعديل السؤال بنجاح ✓');
+  } else {
+    await addQuestion(testId, sectionId, qData);
+    toast('تمت إضافة السؤال بنجاح ✓');
+  }
+  renderAdminQuestions(testId, state.route.params.testName, sectionId);
+}
+
+function confirmDeleteQuestion(qId, testId, testName, sectionId){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">حذف السؤال؟</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <p class="sub">هل أنت أكتد من حذف هذا السؤال النهائي؟</p>
+    <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="doDeleteQuestion('${qId}', '${testId}', '${testName}', '${sectionId}')">حذف</button></div>
+  `, true);
+}
+
+async function doDeleteQuestion(qId, testId, testName, sectionId){
+  closeModal();
+  await deleteQuestion(qId);
+  toast('تم حذف السؤال');
+  renderAdminQuestions(testId, testName, sectionId);
+}
+
+/* Generic Drag and Drop helper for list reordering */
+function setupDragAndDrop(containerId, listArray, onReordered){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  
+  let draggedIdx = null;
+  const items = container.querySelectorAll('.list-item');
+  
+  items.forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      draggedIdx = parseInt(item.getAttribute('data-index'));
+      e.dataTransfer.effectAllowed = 'move';
+      item.classList.add('dragging');
+    });
+    
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      item.classList.add('drag-over');
+    });
+    
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drag-over');
+    });
+    
+    item.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      item.classList.remove('drag-over');
+      const targetIdx = parseInt(item.getAttribute('data-index'));
+      if(draggedIdx !== null && draggedIdx !== targetIdx){
+        const copyList = [...listArray];
+        const movedItem = copyList.splice(draggedIdx, 1)[0];
+        copyList.splice(targetIdx, 0, movedItem);
+        await onReordered(copyList);
+      }
+    });
+    
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+    });
+  });
+}
+
+async function startTest(testId, testName){
+  document.getElementById('page-content').innerHTML = `<div class="loader">جارِ تجهيز الاختبار...</div>`;
+  let questions = [];
+  
+  if(offlineEnabled()){
+    const blob = getOfflineBlob();
+    if(blob && blob.questions){
+      questions = blob.questions.filter(q => q.testId === testId);
+    }
+  } else {
+    questions = await getQuestionsByTest(testId);
+  }
+  
+  if(questions.length === 0){
+    toast('لا توجد أسئلة متوفرة في هذا الاختبار');
+    renderUserSections();
+    return;
+  }
+  
+  state.quiz = {
+    testId,
+    testName,
+    questions,
+    currentIndex: 0,
+    userAnswers: {},
+    startTime: Date.now(),
+    savedSet: new Set()
+  };
+  
+  nav('quiz');
+}
+
+function renderQuizScreen(){
+  const qz = state.quiz;
+  if(!qz) { goBack(); return; }
+  
+  const q = qz.questions[qz.currentIndex];
+  const total = qz.questions.length;
+  const progressPercent = Math.round(((qz.currentIndex + 1) / total) * 100);
+  const selectedAns = qz.userAnswers[q.id];
+  
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text-faint);margin-bottom:6px;">
+        <span>${escapeHtml(qz.testName)}</span>
+        <span>السؤال ${qz.currentIndex + 1} من ${total}</span>
+      </div>
+      <div style="height:6px;background:var(--surface-2);border-radius:6px;overflow:hidden;">
+        <div style="height:100%;width:${progressPercent}%;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:.3s;"></div>
+      </div>
+    </div>
+    
+    <div class="q-card">
+      ${q.passage ? `<div class="q-passage"><b>النص المرفق:</b><br>${escapeHtml(q.passage)}</div>` : ''}
+      <div class="q-text">${escapeHtml(q.question || q.sentence || '')}</div>
+      
+      <div style="margin-top:16px;">
+        ${(q.answers || []).map((ans, idx) => `
+          <div class="answer ${selectedAns === idx ? 'selected' : ''}" onclick="selectQuizAnswer('${q.id}', ${idx})">
+            <div class="letter">${LETTERS[idx] || (idx+1)}</div>
+            <div style="flex:1;">${escapeHtml(ans)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    
+    <div style="display:flex;justify-content:space-between;gap:10px;">
+      <button class="btn btn-outline" style="width:auto;" onclick="prevQuizQuestion()" ${qz.currentIndex === 0 ? 'disabled style="opacity:0.4;"' : ''}>السابق</button>
+      <button class="btn icon-btn" style="width:44px;height:44px;" onclick="toggleSaveCurrentQuizQuestion('${q.id}')">${iconBookmark(qz.savedSet.has(q.id))}</button>
+      ${qz.currentIndex < total - 1 ? `
+        <button class="btn btn-primary" style="width:auto;flex:1;" onclick="nextQuizQuestion()">السؤال التالي</button>
+      ` : `
+        <button class="btn btn-primary" style="width:auto;flex:1;background:var(--success);border-color:var(--success);color:#0a2014;" onclick="finishQuizSession()">إنهاء الاختبار</button>
+      `}
+    </div>
+  `;
+}
+
+function selectQuizAnswer(qId, idx){
+  state.quiz.userAnswers[qId] = idx;
+  renderQuizScreen();
+}
+
+function nextQuizQuestion(){
+  if(state.quiz.currentIndex < state.quiz.questions.length - 1){
+    state.quiz.currentIndex++;
+    renderQuizScreen();
+  }
+}
+
+function prevQuizQuestion(){
+  if(state.quiz.currentIndex > 0){
+    state.quiz.currentIndex--;
+    renderQuizScreen();
+  }
+}
+
+async function toggleSaveCurrentQuizQuestion(qId){
+  const qz = state.quiz;
+  const isSavedNow = qz.savedSet.has(qId);
+  if(isSavedNow){
+    qz.savedSet.delete(qId);
+    if(!offlineEnabled()) await toggleSaved(state.userNumber, { id: qId, testId: qz.testId }, false);
+    toast('تمت إزالة السؤال من المحفوظات');
+  } else {
+    qz.savedSet.add(qId);
+    if(!offlineEnabled()) await toggleSaved(state.userNumber, { id: qId, testId: qz.testId }, true);
+    toast('تم حفظ السؤال');
+  }
+  renderQuizScreen();
+}
+
+async function finishQuizSession(){
+  const qz = state.quiz;
+  const durationSec = Math.round((Date.now() - qz.startTime) / 1000);
+  let score = 0;
+  
+  qz.questions.forEach(q => {
+    const userAns = qz.userAnswers[q.id];
+    if(userAns === q.correctIndex){
+      score++;
+      if(!offlineEnabled()) clearWrong(state.userNumber, q.id);
+    } else {
+      if(!offlineEnabled()) setWrong(state.userNumber, q);
+    }
+  });
+  
+  const total = qz.questions.length;
+  const percent = Math.round((score / total) * 100);
+  
+  if(!offlineEnabled()){
+    await addAttempt(state.userNumber, {
+      testId: qz.testId,
+      testName: qz.testName,
+      score,
+      total,
+      durationSeconds: durationSec
+    });
+  }
+  
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">نتيجة الاختبار</h3><div class="modal-close" onclick="closeModal();nav('sections');">${iconClose()}</div></div>
+    <div style="text-align:center;padding:10px 0;">
+      <div style="font-size:42px;font-weight:900;color:var(--accent);">${percent}%</div>
+      <div style="font-size:16px;margin:8px 0;">الإجابات الصحيحة: ${score} من أصل ${total}</div>
+      <div style="color:var(--text-dim);font-size:13px;">الوقت المستغرق: ${fmtDuration(durationSec)}</div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:16px;" onclick="closeModal();nav('sections');">العودة للأقسام</button>
+  `, true);
+}
+
+async function renderWrongQuestions(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const list = await getWrongList(state.userNumber);
+  if(list.length === 0){
+    cont.innerHTML = `<div class="empty">لا توجد أسئلة خاطئة محفوظة حالياً. ممتاز!</div>`;
+    return;
+  }
+  
+  cont.innerHTML = `
+    <div class="section-title">الأسئلة الخاطئة (${list.length})</div>
+    ${list.map(w => `
+      <div class="list-item" style="cursor:default;">
+        <div style="flex:1;">
+          <div class="title">معرّف السؤال: ${w.questionId}</div>
+          <div class="sub">تمت إضافته تلقائياً عند الخطأ فيه</div>
+        </div>
+        <button class="icon-action danger" onclick="removeWrongItem('${w.questionId}')">${iconTrash()}</button>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function removeWrongItem(qid){
+  await clearWrong(state.userNumber, qid);
+  toast('تمت إزالة السؤال');
+  renderWrongQuestions();
+}
+
+async function renderSavedQuestions(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const list = await getSavedList(state.userNumber);
+  if(list.length === 0){
+    cont.innerHTML = `<div class="empty">لا توجد أسئلة في المحفوظات.</div>`;
+    return;
+  }
+  
+  cont.innerHTML = `
+    <div class="section-title">الأسئلة المحفوظة (${list.length})</div>
+    ${list.map(s => `
+      <div class="list-item" style="cursor:default;">
+        <div style="flex:1;">
+          <div class="title">سؤال محفوظ برقم: ${s.questionId}</div>
+        </div>
+        <button class="icon-action danger" onclick="removeSavedItem('${s.questionId}')">${iconTrash()}</button>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function removeSavedItem(qid){
+  await toggleSaved(state.userNumber, { id: qid }, false);
+  toast('تمت الإزالة من المحفوظات');
+  renderSavedQuestions();
+}
+
+async function renderHistory(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ تحميل سجل الاختبارات...</div>`;
+  const attempts = await getAttempts(state.userNumber);
+  if(attempts.length === 0){
+    cont.innerHTML = `<div class="empty">لم تقم بإجراء أية اختبارات بعد.</div>`;
+    return;
+  }
+  
+  cont.innerHTML = `
+    <div class="section-title">سجل الاختبارات السابقة</div>
+    ${attempts.map(a => `
+      <div class="list-item" style="cursor:default;">
+        <div>
+          <div class="title">${escapeHtml(a.testName || 'اختبار STEP')}</div>
+          <div class="sub">النتيجة: ${a.score}/${a.total} (${Math.round(((a.score||0)/(a.total||1))*100)}%) - الوقت: ${fmtDuration(a.durationSeconds||0)}</div>
+        </div>
+        <span class="chip chip-accent">${Math.round(((a.score||0)/(a.total||1))*100)}%</span>
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderOfflineSections(){
+  const cont = document.getElementById('page-content');
+  const blob = getOfflineBlob();
+  if(!blob || !blob.sections || blob.sections.length === 0){
+    cont.innerHTML = `<div class="empty">لا توجد أية بيانات محلياً. قُم بتمكين السويتش بالإنترنت أولاً للتنزيل.</div>`;
+    return;
+  }
+  
+  cont.innerHTML = `
+    <div class="section-title">المحتوى المحفوظ (بدون اتصال)</div>
+    <div style="font-size:12px;color:var(--text-faint);margin-bottom:14px;">آخر تحديث: ${blob.syncedAt ? new Date(blob.syncedAt).toLocaleString('ar-SA') : '-'}</div>
+    ${blob.sections.map(s => {
+      const tests = (blob.tests || []).filter(t => t.sectionId === s.id);
+      return `
+        <div class="card" style="margin-bottom:14px;">
+          <div style="font-weight:800;font-size:17px;color:var(--accent);margin-bottom:10px;">القسم ${s.number}: ${escapeHtml(s.name)}</div>
+          ${tests.map(t => `
+            <div class="list-item" onclick="startTest('${t.id}', '${escapeHtml(t.name).replace(/'/g,"\\'")}')">
+              <div class="title">اختبار رقم ${t.number}: ${escapeHtml(t.name)}</div>
+              <div>${iconChev()}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+function openModal(contentHtml, center = true){
+  closeModal();
+  const overlay = document.createElement('div');
+  overlay.className = `modal-overlay ${center ? 'center' : ''}`;
+  overlay.id = 'activeModal';
+  overlay.innerHTML = `<div class="modal">${contentHtml}</div>`;
+  document.body.appendChild(overlay);
+}
+
+function closeModal(){
+  const m = document.getElementById('activeModal');
+  if(m) m.remove();
+}
+
+async function render(){
+  const app = document.getElementById('app');
+  if(!state.userNumber && state.route.name !== 'login'){
+    const savedSession = await sessionLoad();
+    if(savedSession){
+      state.userNumber = savedSession.num;
+      state.isAdmin = savedSession.isAdmin;
+      state.route = { name: 'home', params: {} };
+    } else {
+      state.route = { name: 'login', params: {} };
+    }
+  }
+
+  app.innerHTML = `
+    ${renderTopbar()}
+    ${renderDrawer()}
+    <div class="page" id="page-content"></div>
+  `;
+
+  if(state.route.name === 'login') renderLogin();
+  else if(state.route.name === 'home') renderHome();
+  else if(state.route.name === 'sections') renderUserSections();
+  else if(state.route.name === 'quiz') renderQuizScreen();
+  else if(state.route.name === 'wrong') renderWrongQuestions();
+  else if(state.route.name === 'saved') renderSavedQuestions();
+  else if(state.route.name === 'history') renderHistory();
+  else if(state.route.name === 'offline-sections') renderOfflineSections();
+  else if(state.route.name === 'admin-sections') renderAdminSections();
+  else if(state.route.name === 'admin-tests') renderAdminTests(state.route.params.sectionId, state.route.params.sectionName);
+  else if(state.route.name === 'admin-questions') renderAdminQuestions(state.route.params.testId, state.route.params.testName, state.route.params.sectionId);
+}
+
+/* Initial Boot */
+window.onload = function(){
+  render();
+};
 </script>
 </body>
 </html>
+```
