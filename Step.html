@@ -567,9 +567,11 @@ async function doLogout(){
 }
 
 function renderLogin(){
-  return `
-  <div style="min-height:90vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;">
-    <div style="font-family:'Tajawal';font-weight:900;font-size:46px;letter-spacing:2px;color:var(--accent);">منصة STEP</div>
+  const cont = document.getElementById('page-content');
+  if(!cont) return;
+  cont.innerHTML = `
+  <div style="min-height:75vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;">
+    <div style="font-family:'Tajawal';font-weight:900;font-size:42px;letter-spacing:2px;color:var(--accent);">منصة STEP</div>
     <div style="color:var(--text-dim);margin:10px 0 34px;font-size:14px;">اختبار الكفاية في اللغة الإنجليزية - أسلوب محاكاة شامل</div>
     <div style="width:100%;max-width:340px;">
       <input type="text" inputmode="numeric" id="loginInput" placeholder="أدخل رقم المستخدم" style="text-align:center;font-size:18px;">
@@ -599,29 +601,40 @@ async function doLogin(){
 async function renderHome(){
   const cont = document.getElementById('page-content');
   cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
-  if(state.isAdmin){
-    const secSnap = await db.collection('sections').get();
-    const testSnap = await db.collection('tests').get();
-    const qSnap = await db.collection('questions').get();
-    cont.innerHTML = `
-      <div class="section-title">لوحة المشرف - STEP</div>
-      <div class="stat-grid">
-        <div class="stat-card"><div class="stat-num">${secSnap.size}</div><div class="stat-label">الأقسام الرئيسية</div></div>
-        <div class="stat-card"><div class="stat-num">${testSnap.size}</div><div class="stat-label">إجمالي الاختبارات</div></div>
-        <div class="stat-card"><div class="stat-num">${qSnap.size}</div><div class="stat-label">الأسئلة المضافة</div></div>
-      </div>
-      <button class="btn btn-primary" onclick="nav('admin-sections')">${iconGrid()} إدارة الأقسام والاختبارات والأسئلة</button>
-    `;
-  } else {
-    const s = await userStats(state.userNumber);
+  try {
+    if(state.isAdmin){
+      const secSnap = await db.collection('sections').get();
+      const testSnap = await db.collection('tests').get();
+      const qSnap = await db.collection('questions').get();
+      cont.innerHTML = `
+        <div class="section-title">لوحة المشرف - STEP</div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-num">${secSnap.size}</div><div class="stat-label">الأقسام الرئيسية</div></div>
+          <div class="stat-card"><div class="stat-num">${testSnap.size}</div><div class="stat-label">إجمالي الاختبارات</div></div>
+          <div class="stat-card"><div class="stat-num">${qSnap.size}</div><div class="stat-label">الأسئلة المضافة</div></div>
+        </div>
+        <button class="btn btn-primary" onclick="nav('admin-sections')">${iconGrid()} إدارة الأقسام والاختبارات والأسئلة</button>
+      `;
+    } else {
+      const s = await userStats(state.userNumber);
+      cont.innerHTML = `
+        <div class="section-title">مرحباً بك، طالب STEP</div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-num">${s.totalAttempts}</div><div class="stat-label">عدد الاختبارات المُنجزة</div></div>
+          <div class="stat-card"><div class="stat-num">${s.avgPercent}%</div><div class="stat-label">متوسط النسبة المئوية</div></div>
+        </div>
+        <div class="stat-card" style="margin-bottom:16px;"><div class="stat-num">${fmtDuration(s.totalTime)}</div><div class="stat-label">إجمالي وقت التدريب</div></div>
+        <button class="btn btn-primary" onclick="nav('sections')">${iconGrid()} استعراض أقسام اختبار STEP</button>
+      `;
+    }
+  } catch(e) {
+    console.error(e);
     cont.innerHTML = `
       <div class="section-title">مرحباً بك، طالب STEP</div>
-      <div class="stat-grid">
-        <div class="stat-card"><div class="stat-num">${s.totalAttempts}</div><div class="stat-label">عدد الاختبارات المُنجزة</div></div>
-        <div class="stat-card"><div class="stat-num">${s.avgPercent}%</div><div class="stat-label">متوسط النسبة المئوية</div></div>
+      <div class="card" style="text-align:center;padding:24px;">
+        <div style="margin-bottom:12px;color:var(--text-dim);">تعذّر الاتصال بالسيرفر. يمكنك استعراض الاختبارات المحفوظة أو المحاولة لاحقاً.</div>
+        <button class="btn btn-primary" onclick="nav('sections')">${iconGrid()} استعراض أقسام الاختبار</button>
       </div>
-      <div class="stat-card" style="margin-bottom:16px;"><div class="stat-num">${fmtDuration(s.totalTime)}</div><div class="stat-label">إجمالي وقت التدريب</div></div>
-      <button class="btn btn-primary" onclick="nav('sections')">${iconGrid()} استعراض أقسام اختبار STEP</button>
     `;
   }
 }
@@ -1358,12 +1371,14 @@ function closeModal(){
 
 async function render(){
   const app = document.getElementById('app');
-  if(!state.userNumber && state.route.name !== 'login'){
+  if(!state.userNumber){
     const savedSession = await sessionLoad();
     if(savedSession){
       state.userNumber = savedSession.num;
       state.isAdmin = savedSession.isAdmin;
-      state.route = { name: 'home', params: {} };
+      if(state.route.name === 'login') {
+        state.route = { name: 'home', params: {} };
+      }
     } else {
       state.route = { name: 'login', params: {} };
     }
