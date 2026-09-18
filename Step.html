@@ -9,27 +9,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#12172B;
-  --surface:#1B2140;
-  --surface-2:#232A4D;
+  --bg:#12172B; --bg-2:#0D1122;
+  --surface:#1B2140; --surface-2:#232A4D; --surface-3:#2B3260;
+  --text:#EDEAE0; --text-muted:#A7ACC8; --text-faint:#6B7196;
+  --teal:#4FA8A0; --teal-dim:#2C6D67;
+  --amber:#E8B44C; --amber-dim:#3A3221;
+  --red:#E2637A; --red-dim:#3A2530;
+  --green:#6FCF97; --green-dim:#1E3A2C;
   --border:rgba(237,234,224,.12);
   --border-soft:rgba(237,234,224,.08);
-  --text:#EDEAE0;
-  --text-muted:#A7ACC8;
-  --text-faint:#6B7196;
-  --teal:#4FA8A0;
-  --teal-dim:#397D78;
-  --amber:#E8B44C;
-  --red:#E2637A;
-  --green:#6FCF97;
   --radius:16px;
   --radius-sm:10px;
-  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
 body{
-  background:radial-gradient(circle at 20% -10%, #1B2140 0%, var(--bg) 45%, #0D1122 100%);
+  background:radial-gradient(circle at 20% -10%, #1B2140 0%, var(--bg) 45%, var(--bg-2) 100%);
+  background-attachment:fixed;
   color:var(--text);
   font-family:'Inter',system-ui,sans-serif;
   min-height:100vh;
@@ -39,14 +36,14 @@ h1,h2,h3,.display{ font-family:'Space Grotesk',sans-serif; letter-spacing:-0.01e
 .mono{ font-family:'JetBrains Mono',monospace; }
 a{color:inherit;}
 button{ font-family:inherit; cursor:pointer; }
-::selection{ background:var(--teal); color:#08110E; }
+::selection{ background:var(--amber); color:#1a1408; }
 
-#app{ max-width:640px; margin:0 auto; padding:0 16px 80px; min-height:100vh; }
+#app{ max-width:640px; margin:0 auto; padding:0 16px 60px; min-height:100vh; }
 .center-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
 
 /* ---- Step motif ---- */
 .step-mark{ display:flex; align-items:flex-end; gap:4px; height:26px; }
-.step-mark i{ display:block; width:7px; background:var(--teal); border-radius:2px; opacity:.35; }
+.step-mark i{ display:block; width:7px; background:var(--amber); border-radius:2px; opacity:.35; }
 .step-mark i:nth-child(1){ height:8px; }
 .step-mark i:nth-child(2){ height:14px; opacity:.6; }
 .step-mark i:nth-child(3){ height:20px; opacity:.85; }
@@ -54,73 +51,74 @@ button{ font-family:inherit; cursor:pointer; }
 
 .brand{ display:flex; align-items:center; gap:10px; }
 .brand .wordmark{ font-size:22px; font-weight:700; letter-spacing:.02em; }
-.brand .wordmark span{ color:var(--teal); }
+.brand .wordmark span{ color:var(--amber); }
 
 /* ---- Top bar ---- */
 .topbar{
-  position:sticky; top:0; z-index:20;
+  position:sticky; top:0; z-index:20; height:60px;
   display:flex; align-items:center; justify-content:space-between;
-  padding:16px 0; margin-bottom:10px;
-  background:linear-gradient(var(--bg) 70%, transparent);
-  backdrop-filter:blur(6px);
+  padding:0; margin-bottom:6px;
+  background:rgba(18,23,43,.85); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
 }
 .topbar .left{ display:flex; align-items:center; gap:8px; }
 .icon-btn{
-  width:40px; height:40px; border-radius:10px; border:1px solid var(--border);
+  width:40px; height:40px; border-radius:50%; border:1px solid var(--border);
   background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center;
-  transition:.15s;
+  transition:.15s; flex-shrink:0;
 }
-.icon-btn:hover{ background:var(--surface-2); border-color:var(--teal-dim); }
+.icon-btn:hover{ background:var(--surface-3); border-color:var(--amber); }
 .icon-btn svg{ width:18px; height:18px; }
 
 /* ---- Cards / layout ---- */
 .card{
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:20px; margin-bottom:14px;
+  padding:18px; margin-bottom:14px;
 }
-.card:hover.clickable{ border-color:var(--teal-dim); }
 .clickable{ cursor:pointer; transition:.15s; }
-.clickable:hover{ transform:translateY(-1px); }
-.grid{ display:grid; gap:14px; }
+.clickable:hover{ border-color:var(--teal); }
+.grid{ display:grid; gap:12px; }
 .grid-2{ grid-template-columns:repeat(2,1fr); }
 .grid-3{ grid-template-columns:repeat(3,1fr); }
 @media (max-width:640px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
 
 .stat{
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:18px;
+  padding:16px; position:relative; overflow:hidden;
 }
-.stat .num{ font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:600; color:var(--amber); }
-.stat .label{ color:var(--text-muted); font-size:13px; margin-top:4px; }
+.stat:before{content:'';position:absolute;top:-20px;left:-20px;width:70px;height:70px;background:var(--amber);opacity:.08;border-radius:50%;}
+.stat .num{ font-family:'Space Grotesk',sans-serif; font-size:28px; font-weight:700; color:var(--amber); }
+.stat .label{ color:var(--text-muted); font-size:12.5px; margin-top:4px; }
 
-.page-title{ font-size:26px; font-weight:700; margin:6px 0 4px; }
-.page-sub{ color:var(--text-muted); font-size:14px; margin-bottom:20px; }
+.page-title{ font-size:22px; font-weight:800; margin:14px 0 4px; }
+.page-sub{ color:var(--text-muted); font-size:13.5px; margin-bottom:18px; }
 
 .btn{
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  padding:11px 18px; border-radius:10px; border:1px solid var(--border);
-  background:var(--surface-2); color:var(--text); font-weight:600; font-size:14px;
+  padding:12px 18px; border-radius:12px; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--text); font-weight:600; font-size:14.5px;
   transition:.15s;
 }
-.btn:hover{ border-color:var(--teal-dim); }
-.btn-primary{ background:var(--teal); border-color:var(--teal); color:#062420; }
-.btn-primary:hover{ background:#49bdaa; }
-.btn-amber{ background:var(--amber); border-color:var(--amber); color:#3A1F02; }
+.btn:hover{ background:var(--surface-3); border-color:var(--teal); }
+.btn-primary{ background:var(--amber); border-color:var(--amber); color:#1a1408; }
+.btn-primary:hover{ filter:brightness(1.08); background:var(--amber); }
+.btn-amber{ background:var(--teal); border-color:var(--teal); color:#062420; }
+.btn-amber:hover{ filter:brightness(1.08); background:var(--teal); }
 .btn-danger{ background:transparent; border-color:var(--red); color:var(--red); }
-.btn-danger:hover{ background:rgba(225,90,77,.1); }
+.btn-danger:hover{ background:rgba(226,99,122,.1); }
 .btn-ghost{ background:transparent; border-color:var(--border); }
 .btn-block{ width:100%; }
-.btn-sm{ padding:7px 12px; font-size:13px; border-radius:8px; }
+.btn-sm{ padding:8px 14px; font-size:13px; border-radius:8px; }
 .btn[disabled]{ opacity:.4; cursor:not-allowed; }
 
 input[type=text],input[type=tel],input[type=number],textarea{
-  width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
-  padding:12px 14px; border-radius:10px; font-size:15px; font-family:inherit; outline:none;
+  width:100%; background:var(--bg-2); border:1px solid var(--border); color:var(--text);
+  padding:12px 14px; border-radius:10px; font-size:14.5px; font-family:inherit; outline:none;
 }
 input:focus,textarea:focus{ border-color:var(--teal); }
-textarea{ resize:vertical; min-height:120px; font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.6; }
+textarea{ resize:vertical; min-height:110px; font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.6; }
 label{ display:block; font-size:13px; color:var(--text-muted); margin-bottom:6px; font-weight:600; }
-.field{ margin-bottom:16px; }
+.field{ margin-bottom:14px; }
 
 .row-between{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .muted{ color:var(--text-muted); }
@@ -129,73 +127,80 @@ label{ display:block; font-size:13px; color:var(--text-muted); margin-bottom:6px
   display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
   padding:3px 9px; border-radius:99px; text-transform:uppercase; letter-spacing:.04em;
 }
-.badge-teal{ background:rgba(63,167,150,.15); color:var(--teal); }
-.badge-amber{ background:rgba(242,166,90,.15); color:var(--amber); }
-.badge-red{ background:rgba(225,90,77,.15); color:var(--red); }
-.badge-green{ background:rgba(76,175,125,.15); color:var(--green); }
+.badge-teal{ background:rgba(79,168,160,.15); color:var(--teal); }
+.badge-amber{ background:rgba(232,180,76,.15); color:var(--amber); }
+.badge-red{ background:rgba(226,99,122,.15); color:var(--red); }
+.badge-green{ background:rgba(111,207,151,.15); color:var(--green); }
 
 .empty{ text-align:center; padding:50px 20px; color:var(--text-muted); }
 .empty .step-mark{ margin:0 auto 14px; opacity:.5; }
 
-/* ---- Slide menu ---- */
+/* ---- Slide drawer (Qudurat style) ---- */
+.overlay{position:fixed;inset:0;background:rgba(6,8,16,.6);z-index:29;opacity:0;pointer-events:none;transition:.25s;}
+.overlay.open{opacity:1;pointer-events:auto;}
 .menu-overlay{
-  position:fixed; inset:0; background:rgba(5,9,14,.6); z-index:50;
+  position:fixed; inset:0; background:rgba(6,8,16,.6); z-index:50;
   display:flex; justify-content:flex-end;
   animation:fadeIn .15s ease;
 }
 @keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
 .menu-panel{
-  width:300px; max-width:85vw; height:100%; background:var(--surface); border-left:1px solid var(--border);
-  padding:22px; display:flex; flex-direction:column; gap:6px;
-  animation:slideIn .18s ease;
+  width:78%; max-width:320px; height:100%; background:var(--surface); border-left:1px solid var(--border);
+  padding:0 0 20px; display:flex; flex-direction:column; gap:0;
+  animation:slideIn .18s ease; overflow-y:auto;
 }
 @keyframes slideIn{ from{ transform:translateX(30px); opacity:0;} to{ transform:translateX(0); opacity:1;} }
+.menu-head{ padding:20px 20px 16px; border-bottom:1px solid var(--border); margin-bottom:8px; }
+.menu-head .num{ font-family:'Space Grotesk',sans-serif; font-weight:800; font-size:20px; color:var(--amber); }
+.menu-head .tag{ color:var(--text-faint); font-size:12px; margin-top:2px; }
 .menu-item{
-  display:flex; align-items:center; gap:12px; padding:13px 12px; border-radius:10px;
-  color:var(--text); font-weight:600; font-size:14.5px; border:1px solid transparent;
+  display:flex; align-items:center; gap:12px; padding:13px 20px;
+  color:var(--text); font-weight:600; font-size:14.5px; border:1px solid transparent; text-decoration:none;
+  border-right:3px solid transparent;
 }
-.menu-item:hover{ background:var(--surface-2); border-color:var(--border); }
+.menu-item:hover{ background:var(--surface-2); }
+.menu-item.active{ background:var(--surface-2); border-right-color:var(--amber); }
 .menu-item svg{ width:18px; height:18px; color:var(--teal); flex-shrink:0; }
-.menu-foot{ margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+.menu-foot{ margin-top:auto; padding-top:10px; border-top:1px solid var(--border); }
 
 /* ---- Modal ---- */
 .modal-overlay{
-  position:fixed; inset:0; background:rgba(5,9,14,.65); z-index:60;
+  position:fixed; inset:0; background:rgba(5,9,14,.7); z-index:60;
   display:flex; align-items:center; justify-content:center; padding:20px;
 }
 .modal{
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  width:100%; max-width:520px; max-height:88vh; overflow-y:auto; padding:24px;
+  width:100%; max-width:520px; max-height:88vh; overflow-y:auto; padding:22px;
   box-shadow:var(--shadow);
 }
 .modal h3{ margin-top:0; }
 .modal-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
 
 /* ---- Question ---- */
-.q-text{ font-size:17px; font-weight:600; line-height:1.5; margin-bottom:18px; }
+.q-text{ font-size:17px; font-weight:600; line-height:1.6; margin-bottom:16px; }
 .option{
-  display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:10px;
-  border:1px solid var(--border); background:var(--surface-2); margin-bottom:10px; transition:.12s;
+  display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:var(--radius-sm);
+  border:1.5px solid var(--border); background:var(--surface-2); margin-bottom:10px; transition:.12s;
 }
 .option .letter{
-  width:26px; height:26px; border-radius:7px; background:var(--surface); border:1px solid var(--border);
+  width:26px; height:26px; border-radius:50%; background:var(--surface); border:1.5px solid var(--text-faint);
   display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--text-muted); flex-shrink:0;
 }
-.option.selected{ border-color:var(--teal); background:rgba(63,167,150,.1); }
-.option.selected .letter{ background:var(--teal); color:#062420; border-color:var(--teal); }
-.option.correct{ border-color:var(--green); background:rgba(76,175,125,.12); }
-.option.correct .letter{ background:var(--green); color:#06210f; border-color:var(--green); }
-.option.wrong{ border-color:var(--red); background:rgba(225,90,77,.12); }
-.option.wrong .letter{ background:var(--red); color:#2a0906; border-color:var(--red); }
+.option.selected{ border-color:var(--amber); background:var(--amber-dim); }
+.option.selected .letter{ background:var(--amber); color:#1a1408; border-color:var(--amber); }
+.option.correct{ border-color:var(--green); background:var(--green-dim); }
+.option.correct .letter{ background:var(--green); color:#0c2016; border-color:var(--green); }
+.option.wrong{ border-color:var(--red); background:var(--red-dim); }
+.option.wrong .letter{ background:var(--red); color:#2c0f16; border-color:var(--red); }
 
 .qpalette{ display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
 .qdot{
-  width:34px; height:34px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2);
+  width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:var(--surface-2);
   display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--text-muted);
   font-family:'JetBrains Mono',monospace; position:relative;
 }
 .qdot.current{ border-color:var(--teal); color:var(--teal); }
-.qdot.answered{ background:rgba(63,167,150,.18); color:var(--teal); border-color:var(--teal-dim); }
+.qdot.answered{ background:rgba(79,168,160,.18); color:var(--teal); border-color:var(--teal-dim); }
 .qdot.reviewed:after{
   content:''; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--amber);
 }
@@ -204,7 +209,7 @@ label{ display:block; font-size:13px; color:var(--text-muted); margin-bottom:6px
 .quiz-actions .icon-btn.active{ border-color:var(--amber); color:var(--amber); }
 .quiz-actions .icon-btn.active-save{ border-color:var(--teal); color:var(--teal); }
 
-.progress-track{ height:6px; border-radius:99px; background:var(--surface-2); overflow:hidden; margin-bottom:22px; }
+.progress-track{ height:6px; border-radius:99px; background:var(--surface-2); overflow:hidden; margin-bottom:18px; }
 .progress-fill{ height:100%; background:linear-gradient(90deg,var(--teal),var(--amber)); }
 
 .timer{
@@ -213,10 +218,10 @@ label{ display:block; font-size:13px; color:var(--text-muted); margin-bottom:6px
 }
 
 .login-wrap{ width:100%; max-width:380px; }
-.login-card{ background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:34px 28px; box-shadow:var(--shadow); }
+.login-card{ background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:34px 28px; box-shadow:var(--shadow); }
 .login-hint{ font-size:12.5px; color:var(--text-faint); margin-top:14px; line-height:1.6; }
 
-.spinner{ width:22px; height:22px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--teal); animation:spin .7s linear infinite; margin:0 auto; }
+.spinner{ width:22px; height:22px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--amber); animation:spin .7s linear infinite; margin:0 auto; }
 @keyframes spin{ to{ transform:rotate(360deg); } }
 .loading-block{ padding:60px 0; text-align:center; color:var(--text-muted); }
 
@@ -228,25 +233,52 @@ table.simple td{ padding:12px 10px; border-bottom:1px solid var(--border-soft); 
 table.simple tr:last-child td{ border-bottom:none; }
 
 .review-note{
-  background:rgba(242,166,90,.1); border:1px solid rgba(242,166,90,.35); color:var(--amber);
+  background:rgba(232,180,76,.1); border:1px solid rgba(232,180,76,.35); color:var(--amber);
   padding:12px 14px; border-radius:10px; font-size:13.5px; margin-bottom:16px;
 }
 
-/* ---- Qudurat-style ordering controls ---- */
-.sortable-card{position:relative;transition:.15s;}
-.drag-handle{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:grab;touch-action:none;user-select:none;}
-.drag-handle:active{cursor:grabbing;border-color:var(--teal);color:var(--teal);}
-.drag-handle svg{width:18px;height:18px;}
-.sortable-card.dragging{opacity:.55;transform:scale(.99);}
-.sortable-card.drag-over,.option-editor.drag-over{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal);}
-.order-chip{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);background:rgba(232,180,76,.12);padding:3px 8px;border-radius:20px;white-space:nowrap;}
-.offline-card{border-color:rgba(79,168,160,.3);}
+/* ---- toast ---- */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface-3);border:1px solid var(--amber);
+  color:var(--text);padding:12px 20px;border-radius:12px;font-size:13.5px;z-index:70;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;text-align:center;max-width:90vw;}
+.toast.show{opacity:1;bottom:34px;}
+
+/* ---- switch (offline toggle) ---- */
+.switch{position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch-slider{position:absolute;cursor:pointer;inset:0;background:var(--surface-3);border-radius:24px;transition:.2s;}
+.switch-slider:before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:var(--text-muted);border-radius:50%;transition:.2s;}
+.switch input:checked + .switch-slider{background:var(--amber);}
+.switch input:checked + .switch-slider:before{transform:translateX(18px);background:#1a1408;}
+
+/* ---- offline banner ---- */
+.offline-banner{ display:flex;align-items:center;gap:8px;background:rgba(226,99,122,.1);border:1px solid var(--red);
+  color:var(--red);padding:10px 14px;border-radius:12px;font-size:12.5px;margin-bottom:14px; }
+.offline-tag{ display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:var(--text-faint); }
+
+/* ---- drag reorder ---- */
+.drag-row{ display:flex; align-items:stretch; gap:0; margin-bottom:10px; }
+.drag-handle{
+  display:flex; align-items:center; justify-content:center; width:34px; flex-shrink:0;
+  color:var(--text-faint); cursor:grab; touch-action:none; border-radius:9px 0 0 9px;
+  background:var(--surface-2); border:1px solid var(--border); border-right:none;
+}
+.drag-handle:active{ cursor:grabbing; }
+.drag-handle svg{ width:16px; height:16px; pointer-events:none; }
+.drag-item-body{ flex:1; border:1px solid var(--border); border-radius:0 9px 9px 0; padding:14px 16px; background:var(--surface); }
+.drag-row.dragging{ opacity:.5; }
+.drag-row.drag-ghost{ position:fixed; z-index:80; pointer-events:none; box-shadow:var(--shadow); border-radius:9px; opacity:.95; }
+.order-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 5px;
+  border-radius:6px; background:var(--surface-3); color:var(--amber); font-family:'JetBrains Mono',monospace; font-size:11.5px; font-weight:700; margin-inline-end:8px; }
+.opt-drag-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.opt-drag-row .drag-handle{ border-radius:9px; border-right:1px solid var(--border); height:48px; }
+.opt-drag-row .field-inline{ flex:1; display:flex; align-items:center; gap:10px; }
 </style>
 </head>
 <body>
 <div id="app">
   <div class="center-screen"><div class="spinner"></div></div>
 </div>
+<div class="toast" id="toast"></div>
 
 <script type="module">
 /* ============ FIREBASE ============ */
@@ -297,9 +329,11 @@ const ICON = {
   logout:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>`,
   plus:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`,
   check:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`,
-  grip:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01"/></svg>`,
-  download:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>`,
-  refresh:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 10-2.34 5.66M20 11V5m0 6h-6"/></svg>`,
+  grid:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
+  download:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>`,
+  refresh:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>`,
+  drag:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`,
+  home:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>`,
 };
 
 /* ============ HELPERS ============ */
@@ -339,17 +373,110 @@ function sortByCreatedAt(arr, dir='asc'){
     return dir==='asc' ? da-db_ : db_-da;
   });
 }
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function letterOf(i){ return ['A','B','C','D'][i]; }
+
+/* ============ DRAG-TO-REORDER (hold handle, then drag) ============ */
+function initDragReorder(container, onReorder){
+  if(!container || container.__dragBound) return;
+  container.__dragBound = true;
+  const LONG_PRESS = 260, MOVE_TOLERANCE = 10;
+  let active = false, dragEl = null, pointerId = null, holdTimer = null;
+
+  function rows(){ return Array.from(container.querySelectorAll(':scope > .drag-row')); }
+
+  function beginDrag(row, handle){
+    active = true;
+    dragEl = row;
+    dragEl.classList.add('dragging');
+    try{ handle.setPointerCapture(pointerId); }catch(err){}
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  }
+
+  function onDown(e){
+    const handle = e.target.closest('.drag-handle');
+    if(!handle || !container.contains(handle)) return;
+    const row = handle.closest('.drag-row');
+    if(!row) return;
+    pointerId = e.pointerId;
+    if(e.pointerType === 'touch' || e.pointerType === 'pen'){
+      const downY = e.clientY, downX = e.clientX;
+      let moved = false;
+      const tmpMove = (ev)=>{ if(Math.abs(ev.clientY-downY)>MOVE_TOLERANCE || Math.abs(ev.clientX-downX)>MOVE_TOLERANCE) moved = true; };
+      const tmpUp = ()=>{ clearTimeout(holdTimer); document.removeEventListener('pointermove', tmpMove); document.removeEventListener('pointerup', tmpUp); };
+      document.addEventListener('pointermove', tmpMove);
+      document.addEventListener('pointerup', tmpUp);
+      holdTimer = setTimeout(()=>{
+        document.removeEventListener('pointermove', tmpMove);
+        document.removeEventListener('pointerup', tmpUp);
+        if(!moved) beginDrag(row, handle);
+      }, LONG_PRESS);
+    } else {
+      beginDrag(row, handle);
+    }
+  }
+
+  function onMove(e){
+    if(!active || !dragEl) return;
+    e.preventDefault();
+    const y = e.clientY;
+    const list = rows();
+    for(const r of list){
+      if(r===dragEl) continue;
+      const rect = r.getBoundingClientRect();
+      const mid = rect.top + rect.height/2;
+      const dragIsAfter = !!(r.compareDocumentPosition(dragEl) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if(y < mid && dragIsAfter){ container.insertBefore(dragEl, r); break; }
+      else if(y > mid && !dragIsAfter){ container.insertBefore(dragEl, r.nextSibling); break; }
+    }
+  }
+
+  function onUp(){
+    if(!active) return;
+    active = false;
+    if(dragEl) dragEl.classList.remove('dragging');
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    const ids = rows().map(r=>r.dataset.id);
+    dragEl = null;
+    onReorder(ids);
+  }
+
+  container.addEventListener('pointerdown', onDown);
+}
+function setupDragReorders(){
+  const testsCont = document.getElementById('tests-drag-container');
+  if(testsCont){
+    initDragReorder(testsCont, async (ids)=>{
+      await Data.reorderTests(testsCont.dataset.sectionId, ids);
+      render();
+    });
+  }
+  const qCont = document.getElementById('questions-drag-container');
+  if(qCont){
+    initDragReorder(qCont, async (ids)=>{
+      await Data.reorderQuestions(qCont.dataset.testId, ids);
+      render();
+    });
+  }
+  const optCont = document.getElementById('question-modal-options');
+  if(optCont){
+    initDragReorder(optCont, ()=>{ /* order is read directly from the DOM on submit */ });
+  }
+}
 function sortByOrder(arr){
-  return arr.slice().sort((a,b)=>{
-    const ao=Number.isFinite(Number(a.order))?Number(a.order):Number.MAX_SAFE_INTEGER;
-    const bo=Number.isFinite(Number(b.order))?Number(b.order):Number.MAX_SAFE_INTEGER;
-    if(ao!==bo)return ao-bo;
-    const da=a.createdAt?tsToDate(a.createdAt)?.getTime()||0:0, db_=b.createdAt?tsToDate(b.createdAt)?.getTime()||0:0;
+  return arr.sort((a,b)=>{
+    const oa = (typeof a.order==='number') ? a.order : 999999;
+    const ob = (typeof b.order==='number') ? b.order : 999999;
+    if(oa!==ob) return oa-ob;
+    const da = a.createdAt ? tsToDate(a.createdAt).getTime() : 0;
+    const db_ = b.createdAt ? tsToDate(b.createdAt).getTime() : 0;
     return da-db_;
   });
 }
-function uid(){ return Math.random().toString(36).slice(2,10); }
-function letterOf(i){ return ['A','B','C','D'][i]; }
 
 function parseQuickAddLettered(raw){
   // Format: "Q: text" then separate lines "A) opt" "B) opt" "C) opt" "D) opt", correct marked with trailing *
@@ -495,14 +622,19 @@ const Data = {
     return snap.exists() ? {id:snap.id,...snap.data()} : null;
   },
   async addTest(sectionId, title, order){
-    if(order===undefined || order===null || isNaN(order)) order=(await Data.getTests(sectionId)).length+1;
-    const ref=await addDoc(testsCol,{sectionId,title,order:Number(order),createdAt:serverTimestamp()});
+    if(order===undefined || order===null || isNaN(order)){
+      const existing = await Data.getTests(sectionId);
+      order = existing.length ? Math.max(...existing.map(t=>(typeof t.order==='number'?t.order:0)))+1 : 1;
+    }
+    const ref = await addDoc(testsCol, { sectionId, title, order, createdAt: serverTimestamp() });
     return ref.id;
   },
-  async updateTest(id,data){ await updateDoc(doc(testsCol,id),data); },
-  async updateTestTitle(id,title){ await updateDoc(doc(testsCol,id),{title}); },
-  async reorderTests(sectionId,ids){
-    const batch=writeBatch(db); ids.forEach((id,i)=>batch.update(doc(testsCol,id),{order:i+1})); await batch.commit();
+  async updateTestTitle(id, title){ await updateDoc(doc(testsCol,id), { title }); },
+  async updateTest(id, data){ await updateDoc(doc(testsCol,id), data); },
+  async reorderTests(sectionId, orderedIds){
+    const batch = writeBatch(db);
+    orderedIds.forEach((id,i)=> batch.update(doc(testsCol,id), { order:i+1 }));
+    await batch.commit();
   },
   async deleteTest(id){
     const qs = await Data.getQuestions(id);
@@ -526,14 +658,21 @@ const Data = {
     return snaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data()}));
   },
   async addQuestion(testId, sectionId, q){
-    let order=q.order;
-    if(order===undefined || order===null || isNaN(order)) order=(await Data.getQuestions(testId)).length+1;
-    const ref=await addDoc(questionsCol,{testId,sectionId,text:q.text,options:q.options,correctIndex:q.correctIndex,order:Number(order),createdAt:serverTimestamp()});
+    let order = q.order;
+    if(order===undefined || order===null || isNaN(order)){
+      const existing = await Data.getQuestions(testId);
+      order = existing.length ? Math.max(...existing.map(x=>(typeof x.order==='number'?x.order:0)))+1 : 1;
+    }
+    const ref = await addDoc(questionsCol, {
+      testId, sectionId, text:q.text, options:q.options, correctIndex:q.correctIndex, order, createdAt: serverTimestamp()
+    });
     return ref.id;
   },
-  async updateQuestion(id,data){ await updateDoc(doc(questionsCol,id),data); },
-  async reorderQuestions(testId,ids){
-    const batch=writeBatch(db); ids.forEach((id,i)=>batch.update(doc(questionsCol,id),{order:i+1})); await batch.commit();
+  async updateQuestion(id, data){ await updateDoc(doc(questionsCol,id), data); },
+  async reorderQuestions(testId, orderedIds){
+    const batch = writeBatch(db);
+    orderedIds.forEach((id,i)=> batch.update(doc(questionsCol,id), { order:i+1 }));
+    await batch.commit();
   },
   async deleteQuestion(id){ await deleteDoc(doc(questionsCol,id)); },
 
@@ -621,7 +760,6 @@ function menuItemsFor(user){
     { icon: ICON.section, label:'Sections',          hash:'#/user/sections' },
     { icon: ICON.saved,   label:'Saved Questions',   hash:'#/user/saved' },
     { icon: ICON.history, label:'Test History',      hash:'#/user/history' },
-    { icon: ICON.download, label:'Offline Sections',  hash:'#/user/offline' },
   ];
 }
 
@@ -643,14 +781,27 @@ function renderTopbar(){
 function renderMenu(){
   if(!state.menuOpen || !state.user) return '';
   const items = menuItemsFor(state.user);
+  const isOfflineOn = offlineEnabled();
+  const onOfflineRoute = location.hash.indexOf('#/user/offline')===0;
   return `
   <div class="menu-overlay" data-action="menu-backdrop">
     <div class="menu-panel">
-      <div class="row-between" style="margin-bottom:18px;">
-        <span style="font-weight:700;font-size:15px;">Menu</span>
-        <button class="icon-btn" data-action="close-menu">${ICON.close}</button>
+      <div class="menu-head">
+        <div class="row-between">
+          <div class="num">#${esc(state.user.number)}</div>
+          <button class="icon-btn" data-action="close-menu">${ICON.close}</button>
+        </div>
+        <div class="tag">${state.user.isAdmin ? 'Admin account' : esc(state.user.name||'')}</div>
       </div>
-      ${items.map(it=>`<a class="menu-item" data-action="go" data-hash="${it.hash}">${it.icon}${it.label}</a>`).join('')}
+      ${items.map(it=>`<a class="menu-item ${location.hash===it.hash?'active':''}" data-action="go" data-hash="${it.hash}">${it.icon}${it.label}</a>`).join('')}
+      ${!state.user.isAdmin ? `
+      <div class="menu-item" style="justify-content:space-between;">
+        <span style="display:flex;align-items:center;gap:12px;">${ICON.download} Download Sections</span>
+        <label class="switch"><input type="checkbox" data-action="toggle-offline" ${isOfflineOn?'checked':''} /><span class="switch-slider"></span></label>
+      </div>
+      ${isOfflineOn ? `<a class="menu-item" data-action="refresh-offline">${ICON.refresh}Refresh Offline Data</a>` : ''}
+      ${isOfflineOn ? `<a class="menu-item ${onOfflineRoute?'active':''}" data-action="go" data-hash="#/user/offline">${ICON.grid}Offline Sections</a>` : ''}
+      ` : ''}
       <div class="menu-foot">
         <a class="menu-item" data-action="logout">${ICON.logout}Log out</a>
       </div>
@@ -677,16 +828,15 @@ function renderModal(){
         <label>${esc(m.label)}</label>
         <input type="text" id="modal-input-val" value="${esc(m.value||'')}" placeholder="${esc(m.placeholder||'')}" autofocus />
       </div>
+      ${m.showOrder ? `
+      <div class="field">
+        <label>Test number — sets its display order inside the section</label>
+        <input type="number" id="modal-input-order" value="${(m.orderValue!==undefined && m.orderValue!==null)?m.orderValue:''}" placeholder="auto (last)" />
+      </div>` : ''}
       <div class="modal-actions">
         <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
         <button class="btn btn-primary" data-action="modal-confirm">${esc(m.confirmLabel||'Save')}</button>
       </div>`;
-  } else if(m.type==='testEdit'){
-    body=`<h3>Edit Test</h3>
-      <div class="field"><label>Test title</label><input type="text" id="tm-title" value="${esc(m.value||'')}" autofocus /></div>
-      <div class="field"><label>Test number (display order)</label><input type="number" id="tm-order" min="1" step="1" value="${Number(m.order)||1}" /></div>
-      <p class="faint" style="font-size:12px;">The number controls the order of tests inside this section.</p>
-      <div class="modal-actions"><button class="btn btn-ghost" data-action="modal-cancel">Cancel</button><button class="btn btn-primary" data-action="modal-confirm">Save</button></div>`;
   } else if(m.type==='choice'){
     body = `
       <h3>${esc(m.title)}</h3>
@@ -716,18 +866,33 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
         <button class="btn btn-primary" data-action="modal-quickadd-submit">Parse & Add</button>
       </div>`;
   } else if(m.type==='question'){
-    const q=m.question||{text:'',options:['','','',''],correctIndex:0,order:1};
-    body=`<h3>${m.editId?'Edit Question':'Add Question'}</h3>
-      <div class="field"><label>Question number (display order)</label><input type="number" id="qm-order" min="1" step="1" value="${Number(q.order)||1}" /></div>
-      <div class="field"><label>Question text</label><textarea id="qm-text" rows="3" style="font-family:'Inter',sans-serif;font-size:14px;">${esc(q.text)}</textarea></div>
-      <div id="qm-options">${[0,1,2,3].map(i=>`
-        <div class="field option-editor" draggable="true" data-opt-index="${i}" style="display:flex;align-items:center;gap:8px;">
-          <div class="drag-handle" title="Press and hold, then drag to reorder">${ICON.grip}</div>
-          <input type="radio" name="qm-correct" value="${i}" ${q.correctIndex===i?'checked':''} style="width:18px;height:18px;flex-shrink:0;" />
-          <input type="text" class="qm-opt" value="${esc(q.options[i]||'')}" placeholder="Option ${letterOf(i)}${i===3?' (optional)':''}" style="flex:1;" />
-        </div>`).join('')}</div>
-      <p class="faint" style="font-size:12px;">Select the radio button next to the correct answer. Drag an answer by the three-line handle; its order updates automatically. Option D can be left empty.</p>
-      <div class="modal-actions"><button class="btn btn-ghost" data-action="modal-cancel">Cancel</button><button class="btn btn-primary" data-action="modal-question-submit" data-edit-id="${m.editId||''}">${m.editId?'Save':'Add'}</button></div>`;
+    const q = m.question || {text:'',options:['','','',''],correctIndex:0,order:null};
+    body = `
+      <h3>${m.editId ? 'Edit Question' : 'Add Question'}</h3>
+      <div class="field">
+        <label>Question text</label>
+        <textarea id="qm-text" rows="3" style="font-family:'Inter',sans-serif;font-size:14px;">${esc(q.text)}</textarea>
+      </div>
+      <div class="field">
+        <label>Question number — sets its display order inside this test</label>
+        <input type="number" id="qm-order" value="${(q.order!==undefined && q.order!==null)?q.order:''}" placeholder="auto (last)" />
+      </div>
+      <label>Answer options</label>
+      <div id="question-modal-options">
+        ${[0,1,2,3].map(i=>`
+          <div class="opt-drag-row drag-row" data-id="opt-${i}">
+            <div class="drag-handle" title="Hold and drag to reorder">${ICON.drag}</div>
+            <div class="field-inline">
+              <input type="radio" name="qm-correct" class="qm-radio" ${q.correctIndex===i?'checked':''} style="width:18px;height:18px;flex-shrink:0;" />
+              <input type="text" class="qm-opt-input" value="${esc(q.options[i]||'')}" placeholder="Option ${letterOf(i)}${i===3?' (optional)':''}" style="flex:1;" />
+            </div>
+          </div>`).join('')}
+      </div>
+      <p class="faint" style="font-size:12px;">Select the radio button next to the correct answer. Hold the handle and drag an option to reorder it — its order updates automatically. Option D can be left empty for 3-option questions.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" data-action="modal-question-submit" data-edit-id="${m.editId||''}">${m.editId?'Save':'Add'}</button>
+      </div>`;
   } else if(m.type==='reviewGate'){
     body = `
       <h3>Marked for Review</h3>
@@ -745,36 +910,6 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
       </div>`;
   }
   return `<div class="modal-overlay" data-action="modal-backdrop"><div class="modal">${body}</div></div>`;
-}
-
-
-/* ============ OFFLINE PRACTICE ============ */
-function offlineKey(){return `step_offline_${state.user?.number||'guest'}`;}
-function getOfflineData(){try{return JSON.parse(localStorage.getItem(offlineKey())||'null')}catch(e){return null}}
-async function downloadOfflineData(){
-  const [ss,ts,qs]=await Promise.all([getDocs(sectionsCol),getDocs(testsCol),getDocs(questionsCol)]);
-  const data={sections:ss.docs.map(d=>({id:d.id,...d.data()})),tests:ts.docs.map(d=>({id:d.id,...d.data()})),questions:qs.docs.map(d=>({id:d.id,...d.data()})),syncedAt:Date.now()};
-  localStorage.setItem(offlineKey(),JSON.stringify(data)); return data;
-}
-function toast(msg){let e=document.getElementById('step-toast');if(!e){e=document.createElement('div');e.id='step-toast';e.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:100;background:var(--surface-3,#2B3260);border:1px solid var(--teal);color:var(--text);padding:12px 18px;border-radius:12px;box-shadow:var(--shadow);font-size:13px';document.body.appendChild(e)}e.textContent=msg;clearTimeout(window.__stepToast);window.__stepToast=setTimeout(()=>e.remove(),2400)}
-async function refreshOffline(){try{await downloadOfflineData();toast('Offline data updated ✓');render()}catch(e){console.error(e);toast('Could not update offline data. Check your connection.');}}
-function renderOffline(){
-  const d=getOfflineData();
-  if(!d)return `<h1 class="page-title">Offline Sections</h1><p class="page-sub">Download sections while online so you can practice without an internet connection.</p><div class="card" style="text-align:center"><div class="step-mark" style="justify-content:center;margin-bottom:14px"><i></i><i></i><i></i><i></i></div><p class="muted">No offline copy exists yet.</p><button class="btn btn-primary" data-action="offline-refresh">${ICON.download} Download Now</button></div>`;
-  const secs=sortByOrder(d.sections||[]);
-  return `<h1 class="page-title">Offline Sections</h1><p class="page-sub">Practice from the copy stored on this device. Last update: ${new Date(d.syncedAt).toLocaleString('en-US')}</p><button class="btn btn-primary" style="margin-bottom:16px" data-action="offline-refresh">${ICON.refresh} Update Offline Data</button>${secs.map(sec=>{const ts=sortByOrder((d.tests||[]).filter(t=>t.sectionId===sec.id)),count=(d.questions||[]).filter(q=>q.sectionId===sec.id).length;return `<div class="card offline-card clickable" data-action="offline-section" data-section-id="${sec.id}"><div class="row-between"><div><div style="font-weight:700;font-size:15.5px">${esc(sec.name)}</div><div class="muted" style="font-size:12px;margin-top:4px">${ts.length} tests · ${count} questions</div></div><span style="color:var(--teal)">${ICON.section}</span></div></div>`}).join('')}`;
-}
-function renderOfflineSection(sectionId){
-  const d=getOfflineData(),sec=d?.sections?.find(s=>s.id===sectionId);if(!sec)return emptyBlock('Section not found.');
-  const tests=sortByOrder((d.tests||[]).filter(t=>t.sectionId===sectionId));
-  return `<h1 class="page-title">${esc(sec.name)}</h1><p class="page-sub">Choose a test to practice offline.</p>${tests.length?tests.map(t=>{const n=(d.questions||[]).filter(q=>q.testId===t.id).length;return `<div class="card clickable" data-action="offline-test" data-test-id="${t.id}" data-section-id="${sectionId}"><div class="row-between"><div><div style="font-weight:700">${esc(t.title)}</div><div class="muted" style="font-size:12px;margin-top:4px">${n} questions</div></div><span class="order-chip">#${t.order??''}</span></div></div>`}).join(''):emptyBlock('No tests in this section.')}`;
-}
-function startOfflineTest(testId,sectionId){
-  const d=getOfflineData();if(!d)return;
-  const t=d.tests.find(x=>x.id===testId),sec=d.sections.find(x=>x.id===sectionId),questions=sortByOrder(d.questions.filter(q=>q.testId===testId));
-  if(!questions.length){toast('No questions saved for this test.');return}
-  state.quiz=newQuizSession({scope:'test',sectionId,testId,testTitle:t?.title||'Test',sectionName:sec?.name||'',questions},`offline:${testId}`);
-  state.quiz.offline=true; state.quiz.offlineQuestions=questions; navigate('#/user/quiz/offline/'+testId);
 }
 
 /* ============ ROUTER ============ */
@@ -810,6 +945,7 @@ async function render(){
     html = `<div class="empty">Something went wrong loading this page.<br><span class="faint">${esc(err.message||err)}</span></div>`;
   }
   app.innerHTML = wrap(html, parts[0]!=='login' && parts[0]!=='name');
+  setupDragReorders();
 }
 function wrap(inner, withTopbar){
   return `${withTopbar ? renderTopbar() : ''}${inner}${renderMenu()}${renderModal()}`;
@@ -877,15 +1013,15 @@ async function renderUserRoute(segs){
     if(segs[1]) return await renderSectionTests(segs[1]);
     return await renderSections();
   }
-  if(section==='offline'){
-    if(segs[1]) return renderOfflineSection(segs[1]);
-    return renderOffline();
-  }
   if(section==='quiz'){
     return await renderQuizRoute(segs.slice(1));
   }
   if(section==='result'){
     return await renderResult(segs[1]);
+  }
+  if(section==='offline'){
+    if(segs[1]) return renderOfflineSectionTests(segs[1]);
+    return renderOfflineSections();
   }
   return renderLoadingScreen();
 }
@@ -1068,6 +1204,21 @@ async function buildQuizForScope(scope, sectionId, testId){
     const snap = await getDocs(questionsCol);
     questions = snap.docs.map(d=>({id:d.id,...d.data()}));
     testTitle = 'All Sections'; sectionName = 'All Sections';
+  } else if(scope==='offlineTest'){
+    const blob = getOfflineBlob();
+    const sec = blob ? (blob.sections||[]).find(s=>s.id===sectionId) : null;
+    const test = blob ? (blob.tests||[]).find(t=>t.id===testId) : null;
+    questions = offlineQuestionsForTest(testId);
+    testTitle = test?.title || 'Test'; sectionName = sec?.name || '';
+  } else if(scope==='offlineSectionAll'){
+    const blob = getOfflineBlob();
+    const sec = blob ? (blob.sections||[]).find(s=>s.id===sectionId) : null;
+    questions = sortByOrder((blob && blob.questions ? blob.questions.filter(q=>q.sectionId===sectionId) : []).slice());
+    testTitle = 'All Tests'; sectionName = sec?.name || '';
+  } else if(scope==='offlineAll'){
+    const blob = getOfflineBlob();
+    questions = sortByOrder((blob && blob.questions ? blob.questions.slice() : []));
+    testTitle = 'All Sections'; sectionName = 'All Sections (Offline)';
   }
   return { scope, sectionId:sectionId||null, testId:testId||null, testTitle, sectionName, questions };
 }
@@ -1083,9 +1234,11 @@ function newQuizSession(built, key){
   };
 }
 async function attachSavedSet(session){
-  const snap = await getDocs(query(savedCol, where('userId','==',state.user.id)));
-  const savedQids = new Set(snap.docs.map(d=>d.data().questionId));
-  session.questions.forEach(q=>{ if(savedQids.has(q.id)) session.savedSet.add(q.id); });
+  try{
+    const snap = await getDocs(query(savedCol, where('userId','==',state.user.id)));
+    const savedQids = new Set(snap.docs.map(d=>d.data().questionId));
+    session.questions.forEach(q=>{ if(savedQids.has(q.id)) session.savedSet.add(q.id); });
+  }catch(e){ console.error('attachSavedSet failed (offline?)', e); }
 }
 async function renderQuizRoute(segs){
   const [scope, a, b] = segs;
@@ -1093,6 +1246,8 @@ async function renderQuizRoute(segs){
   if(scope==='test'){ sectionId=a; testId=b; }
   else if(scope==='sectionAll'){ sectionId=a; }
   else if(scope==='custom'){ testId=a; }
+  else if(scope==='offlineTest'){ sectionId=a; testId=b; }
+  else if(scope==='offlineSectionAll'){ sectionId=a; }
 
   const expectedKey = `${scope}:${sectionId||''}:${testId||''}`;
   if(!state.quiz || state.quiz.key!==expectedKey){
@@ -1108,7 +1263,7 @@ async function renderQuizRoute(segs){
     }
     if(!built.questions.length) return emptyBlock('No questions available for this selection yet.');
     state.quiz = newQuizSession(built, expectedKey);
-    await attachSavedSet(state.quiz);
+    if(!scope.startsWith('offline')) await attachSavedSet(state.quiz);
   }
   return renderQuizScreen();
 }
@@ -1174,8 +1329,11 @@ function renderQuizScreen(){
 }
 async function toggleSave(){
   const quiz = state.quiz; const q = currentQuestion();
-  if(quiz.savedSet.has(q.id)){ quiz.savedSet.delete(q.id); await Data.removeSaved(state.user.id, q.id); }
-  else { quiz.savedSet.add(q.id); await Data.addSaved(state.user.id, q); }
+  if(quiz.scope.startsWith('offline')){ toast('Saving questions needs an internet connection'); return; }
+  try{
+    if(quiz.savedSet.has(q.id)){ quiz.savedSet.delete(q.id); await Data.removeSaved(state.user.id, q.id); }
+    else { quiz.savedSet.add(q.id); await Data.addSaved(state.user.id, q); }
+  }catch(e){ console.error('toggleSave failed', e); }
   render();
 }
 function toggleReview(){
@@ -1216,32 +1374,49 @@ async function finalizeQuiz(){
       selectedIndex, isCorrect, timeSpentSec, saved: quiz.savedSet.has(q.id), reviewed: quiz.reviewSet.has(q.id)
     };
   });
-  const wrongWritesPromise = Promise.all(quiz.questions.map(q => {
-    const a = answersArr.find(x=>x.questionId===q.id);
-    return a.isCorrect ? Data.removeWrong(state.user.id, q.id) : Data.upsertWrong(state.user.id, q);
-  }));
   const score = answersArr.filter(a=>a.isCorrect).length;
-  const [attemptId] = await Promise.all([
-    Data.addAttempt({
-      userId: state.user.id,
-      scopeType: quiz.scope,
-      sectionId: quiz.sectionId || null,
-      sectionName: quiz.sectionName,
-      testId: quiz.testId || null,
-      testTitle: quiz.testTitle,
-      startedAt: quiz.startedAtWall,
-      finishedAt: new Date(),
-      durationSec, score, total: answersArr.length,
-      answers: answersArr,
-    }),
-    wrongWritesPromise,
-  ]);
+  const attemptData = {
+    userId: state.user.id,
+    scopeType: quiz.scope,
+    sectionId: quiz.sectionId || null,
+    sectionName: quiz.sectionName,
+    testId: quiz.testId || null,
+    testTitle: quiz.testTitle,
+    startedAt: quiz.startedAtWall,
+    finishedAt: new Date(),
+    durationSec, score, total: answersArr.length,
+    answers: answersArr,
+  };
+  if(quiz.scope.startsWith('offline')){
+    state.lastAttempt = { id:'offline', ...attemptData };
+    state.quiz = null; state.modal = null;
+    navigate('#/user/result/offline');
+    return;
+  }
+  let saveFailed = false;
+  let attemptId = null;
+  try{
+    const wrongWritesPromise = Promise.all(quiz.questions.map(q => {
+      const a = answersArr.find(x=>x.questionId===q.id);
+      return a.isCorrect ? Data.removeWrong(state.user.id, q.id) : Data.upsertWrong(state.user.id, q);
+    }));
+    [attemptId] = await Promise.all([ Data.addAttempt(attemptData), wrongWritesPromise ]);
+  }catch(e){
+    console.error('finalizeQuiz save failed (offline?)', e);
+    saveFailed = true;
+  }
   state.quiz = null; state.modal = null;
-  navigate(`#/user/result/${attemptId}`);
+  if(saveFailed){
+    state.lastAttempt = { id:'offline', ...attemptData };
+    navigate('#/user/result/offline');
+  } else {
+    navigate(`#/user/result/${attemptId}`);
+  }
 }
 async function renderResult(attemptId){
-  const a = await Data.getAttempt(attemptId);
+  const a = attemptId==='offline' ? state.lastAttempt : await Data.getAttempt(attemptId);
   if(!a) return emptyBlock('Result not found.');
+  const isOffline = attemptId==='offline' || (a.scopeType||'').startsWith('offline');
   const pct = a.total ? Math.round((a.score/a.total)*100) : 0;
   const wrongAnswers = (a.answers||[]).filter(x=>!x.isCorrect);
   let nextTestHtml = '';
@@ -1255,9 +1430,16 @@ async function renderResult(attemptId){
   if(a.scopeType==='test') retakeHtml = `<button class="btn btn-ghost" data-action="start-quiz" data-scope="test" data-section-id="${a.sectionId}" data-test-id="${a.testId}">Retake Test</button>`;
   else if(a.scopeType==='sectionAll') retakeHtml = `<button class="btn btn-ghost" data-action="start-quiz" data-scope="sectionAll" data-section-id="${a.sectionId}">Retake</button>`;
   else if(a.scopeType==='allSections') retakeHtml = `<button class="btn btn-ghost" data-action="start-quiz" data-scope="allSections">Retake</button>`;
+  else if(a.scopeType==='offlineTest') retakeHtml = `<button class="btn btn-ghost" data-action="start-offline-quiz" data-scope="offlineTest" data-section-id="${a.sectionId}" data-test-id="${a.testId}">Retake Test</button>`;
+  else if(a.scopeType==='offlineSectionAll') retakeHtml = `<button class="btn btn-ghost" data-action="start-offline-quiz" data-scope="offlineSectionAll" data-section-id="${a.sectionId}">Retake</button>`;
+  else if(a.scopeType==='offlineAll') retakeHtml = `<button class="btn btn-ghost" data-action="start-offline-quiz" data-scope="offlineAll">Retake</button>`;
+  const backHtml = isOffline
+    ? `<button class="btn btn-ghost" data-action="go" data-hash="#/user/offline">Back to Offline Sections</button>`
+    : `<button class="btn btn-ghost" data-action="go" data-hash="#/user/sections">Back to Sections</button>`;
   return `
   <div class="center-screen" style="min-height:0;padding:30px 0;">
     <div style="width:100%;max-width:480px;">
+      ${isOffline ? `<div class="offline-banner">⚠️ This result could not be saved to your history (no internet connection). It's shown here only.</div>` : ''}
       <div class="card" style="text-align:center;">
         <div class="step-mark" style="justify-content:center;margin-bottom:14px;"><i></i><i></i><i></i><i></i></div>
         <div style="font-size:38px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--amber);">${a.score}/${a.total}</div>
@@ -1266,7 +1448,7 @@ async function renderResult(attemptId){
       </div>
       <div class="row-between" style="gap:10px;flex-wrap:wrap;">
         ${nextTestHtml}${retakeHtml}
-        <button class="btn btn-ghost" data-action="go" data-hash="#/user/sections">Back to Sections</button>
+        ${backHtml}
       </div>
     </div>
   </div>
@@ -1288,6 +1470,16 @@ async function startQuizAction(scope, sectionId, testId){
   if(scope==='test') hash = `#/user/quiz/test/${sectionId}/${testId}`;
   else if(scope==='sectionAll') hash = `#/user/quiz/sectionAll/${sectionId}`;
   else hash = `#/user/quiz/allSections`;
+  if(location.hash===hash) await render(); else navigate(hash);
+}
+async function startOfflineQuizAction(scope, sectionId, testId){
+  const blob = getOfflineBlob();
+  if(!blob){ toast('No offline copy saved yet'); return; }
+  state.quiz = null;
+  let hash;
+  if(scope==='offlineTest') hash = `#/user/quiz/offlineTest/${sectionId}/${testId}`;
+  else if(scope==='offlineSectionAll') hash = `#/user/quiz/offlineSectionAll/${sectionId}`;
+  else hash = `#/user/quiz/offlineAll`;
   if(location.hash===hash) await render(); else navigate(hash);
 }
 async function startReviewListAction(source){
@@ -1352,46 +1544,58 @@ async function renderAdminSections(){
 }
 
 async function renderAdminSectionTests(sectionId){
-  const [sec,tests]=await Promise.all([Data.getSection(sectionId),Data.getTests(sectionId)]);
-  if(!sec)return emptyBlock('Section not found.');
-  return `<h1 class="page-title">${esc(sec.name)}</h1>
-  <p class="page-sub">Tests inside this section.</p>
+  const [sec, tests] = await Promise.all([ Data.getSection(sectionId), Data.getTests(sectionId) ]);
+  if(!sec) return emptyBlock('Section not found.');
+  return `
+  <h1 class="page-title">${esc(sec.name)}</h1>
+  <p class="page-sub">Tests inside this section. Hold the handle and drag to reorder.</p>
   <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-test" data-section-id="${sectionId}">${ICON.plus} Add Test</button>
-  ${tests.length===0?emptyBlock('No tests yet — add your first one.'):tests.map((t,i)=>`
-    <div class="card sortable-card" draggable="true" data-sort-kind="test" data-id="${t.id}" data-section-id="${sectionId}">
-      <div class="row-between">
-        <div class="drag-handle" title="Press and hold, then drag to reorder">${ICON.grip}</div>
-        <div class="clickable" style="flex:1;font-weight:700;font-size:15px;" data-action="go" data-hash="#/admin/sections/${sectionId}/tests/${t.id}">
-          <div>${esc(t.title)}</div><div class="order-chip" style="display:inline-block;margin-top:5px;">#${t.order??i+1}</div>
+  ${tests.length===0 ? emptyBlock('No tests yet — add your first one.') :
+    `<div id="tests-drag-container" data-section-id="${sectionId}">
+    ${tests.map(t=>`
+      <div class="drag-row" data-id="${t.id}">
+        <div class="drag-handle" title="Hold and drag to reorder">${ICON.drag}</div>
+        <div class="drag-item-body">
+          <div class="row-between">
+            <div class="clickable" style="flex:1;font-weight:700;font-size:15px;" data-action="go" data-hash="#/admin/sections/${sectionId}/tests/${t.id}"><span class="order-badge">${(t.order!=null?t.order:'—')}</span>${esc(t.title)}</div>
+            <div style="display:flex;gap:6px;">
+              <button class="icon-btn" data-action="edit-test-title" data-id="${t.id}" data-section-id="${sectionId}" data-title="${esc(t.title)}" data-order="${t.order!=null?t.order:''}">${ICON.edit}</button>
+              <button class="icon-btn" data-action="delete-test" data-id="${t.id}" data-section-id="${sectionId}" data-title="${esc(t.title)}">${ICON.trash}</button>
+            </div>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;">
-          <button class="icon-btn" data-action="edit-test-title" data-id="${t.id}" data-section-id="${sectionId}" data-title="${esc(t.title)}" data-order="${t.order??i+1}">${ICON.edit}</button>
-          <button class="icon-btn" data-action="delete-test" data-id="${t.id}" data-section-id="${sectionId}" data-title="${esc(t.title)}">${ICON.trash}</button>
-        </div>
-      </div>
-    </div>`).join('')}`;
+      </div>`).join('')}
+    </div>`}`;
 }
-async function renderAdminTestEdit(sectionId,testId){
-  const [test,questions]=await Promise.all([Data.getTest(testId),Data.getQuestions(testId)]);
-  if(!test)return emptyBlock('Test not found.');
-  return `<h1 class="page-title">${esc(test.title)} <button class="icon-btn" style="vertical-align:middle;" data-action="edit-test-title" data-id="${testId}" data-section-id="${sectionId}" data-title="${esc(test.title)}" data-order="${test.order??1}">${ICON.edit}</button></h1>
-  <p class="page-sub">${questions.length} question(s) in this test.</p>
+
+async function renderAdminTestEdit(sectionId, testId){
+  const [test, questions] = await Promise.all([ Data.getTest(testId), Data.getQuestions(testId) ]);
+  if(!test) return emptyBlock('Test not found.');
+  return `
+  <h1 class="page-title">${esc(test.title)} <button class="icon-btn" style="vertical-align:middle;" data-action="edit-test-title" data-id="${testId}" data-section-id="${sectionId}" data-title="${esc(test.title)}" data-order="${test.order!=null?test.order:''}">${ICON.edit}</button></h1>
+  <p class="page-sub">${questions.length} question(s) in this test. Hold the handle and drag to reorder.</p>
   <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-question" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.plus} Add Question</button>
-  ${questions.length===0?emptyBlock('No questions yet.'):questions.map((q,i)=>`
-    <div class="card sortable-card" draggable="true" data-sort-kind="question" data-id="${q.id}" data-test-id="${testId}" data-section-id="${sectionId}">
-      <div class="row-between" style="align-items:flex-start;">
-        <div class="drag-handle" title="Press and hold, then drag to reorder">${ICON.grip}</div>
-        <div style="font-weight:600;font-size:14.5px;flex:1;padding:0 8px;">
-          <div>Q${q.order??i+1}. ${esc(q.text)}</div><div class="order-chip" style="display:inline-block;margin-top:6px;">Question #${q.order??i+1}</div>
+  ${questions.length===0 ? emptyBlock('No questions yet.') :
+    `<div id="questions-drag-container" data-test-id="${testId}">
+    ${questions.map((q,i)=>`
+      <div class="drag-row" data-id="${q.id}">
+        <div class="drag-handle" title="Hold and drag to reorder">${ICON.drag}</div>
+        <div class="drag-item-body">
+          <div class="row-between" style="align-items:flex-start;">
+            <div style="font-weight:600;font-size:14.5px;flex:1;"><span class="order-badge">${(q.order!=null?q.order:i+1)}</span>${esc(q.text)}</div>
+            <div style="display:flex;gap:6px;">
+              <button class="icon-btn" data-action="edit-question" data-id="${q.id}" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.edit}</button>
+              <button class="icon-btn" data-action="delete-question" data-id="${q.id}" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.trash}</button>
+            </div>
+          </div>
+          <div style="margin-top:10px;">
+            ${q.options.map((opt,oi)=>`<div class="option ${oi===q.correctIndex?'correct':''}" style="margin-bottom:6px;padding:8px 12px;"><span class="letter">${letterOf(oi)}</span><span style="font-size:13.5px;">${esc(opt)}</span></div>`).join('')}
+          </div>
         </div>
-        <div style="display:flex;gap:6px;">
-          <button class="icon-btn" data-action="edit-question" data-id="${q.id}" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.edit}</button>
-          <button class="icon-btn" data-action="delete-question" data-id="${q.id}" data-test-id="${testId}" data-section-id="${sectionId}">${ICON.trash}</button>
-        </div>
-      </div>
-      <div style="margin-top:10px;padding-left:42px;">${q.options.map((opt,oi)=>`<div class="option ${oi===q.correctIndex?'correct':''}" style="margin-bottom:6px;padding:8px 12px;"><span class="letter">${letterOf(oi)}</span><span style="font-size:13.5px;">${esc(opt)}</span></div>`).join('')}</div>
-    </div>`).join('')}`;
+      </div>`).join('')}
+    </div>`}`;
 }
+
 async function renderAdminUsers(){
   const users = (await Data.getAllUsers()).filter(u=>!u.isAdmin);
   return `
@@ -1431,8 +1635,8 @@ function openDeleteSectionConfirm(id, name){
 function openAddTestChoiceModal(sectionId){
   setModal({ type:'choice', title:'Add Test', options:[{label:'Manual Entry',value:'manual'},{label:'Quick Add (paste text)',value:'quick'}], purpose:'addTestChoice', sectionId });
 }
-function openEditTestTitleModal(id,sectionId,title,order){
-  setModal({type:'testEdit',title:'Edit Test',value:title,order:Number(order)||1,purpose:'editTest',id,sectionId});
+function openEditTestTitleModal(id, sectionId, title, order){
+  setModal({ type:'textInput', title:'Edit Test', label:'Test title', value:title, confirmLabel:'Save', purpose:'editTestTitle', id, sectionId, showOrder:true, orderValue: (order!==undefined && order!=='' && !isNaN(order)) ? order : null });
 }
 function openDeleteTestConfirm(id, sectionId, title){
   setModal({ type:'confirm', title:'Delete Test', message:`Delete "${title}" and all its questions? This can't be undone.`, confirmLabel:'Delete', purpose:'deleteTest', id, sectionId });
@@ -1459,9 +1663,17 @@ async function handleModalConfirm(){
     if(!val) return;
     if(m.purpose==='addSection'){ await Data.addSection(val); }
     else if(m.purpose==='editSection'){ await Data.updateSection(m.id, val); }
-    else if(m.purpose==='editTestTitle'){ await Data.updateTestTitle(m.id, val); }
+    else if(m.purpose==='editTestTitle'){
+      const orderInput = document.getElementById('modal-input-order');
+      const orderVal = orderInput && orderInput.value!=='' ? parseInt(orderInput.value,10) : null;
+      const data = { title: val };
+      if(orderVal!==null && !isNaN(orderVal)) data.order = orderVal;
+      await Data.updateTest(m.id, data);
+    }
     else if(m.purpose==='createTestManual'){
-      const testId = await Data.addTest(m.sectionId, val);
+      const orderInput = document.getElementById('modal-input-order');
+      const orderVal = orderInput && orderInput.value!=='' ? parseInt(orderInput.value,10) : undefined;
+      const testId = await Data.addTest(m.sectionId, val, orderVal);
       state.modal = null;
       navigate(`#/admin/sections/${m.sectionId}/tests/${testId}`);
       return;
@@ -1478,7 +1690,7 @@ async function handleModalChoice(value){
   const m = state.modal;
   if(m.purpose==='addTestChoice'){
     if(value==='manual'){
-      setModal({ type:'textInput', title:'New Test', label:'Test title', placeholder:'e.g. Test 1', confirmLabel:'Create', purpose:'createTestManual', sectionId:m.sectionId });
+      setModal({ type:'textInput', title:'New Test', label:'Test title', placeholder:'e.g. Test 1', confirmLabel:'Create', purpose:'createTestManual', sectionId:m.sectionId, showOrder:true, orderValue:null });
     } else {
       setModal({ type:'quickAdd', purpose:'createTestQuick', sectionId:m.sectionId });
     }
@@ -1496,49 +1708,41 @@ async function handleQuickAddSubmit(){
   state.modal = null;
   navigate(`#/admin/sections/${m.sectionId}/tests/${testId}`);
 }
-async function handleTestEditSubmit(){
-  const m=state.modal,title=(document.getElementById('tm-title')?.value||'').trim(),order=parseInt(document.getElementById('tm-order')?.value,10);
-  if(!title||!Number.isInteger(order)||order<1){alert('Please enter a valid title and test number.');return;}
-  await Data.updateTest(m.id,{title,order}); state.modal=null; render();
-}
 async function handleQuestionSubmit(editId){
-  const m=state.modal,text=document.getElementById('qm-text').value.trim(),order=parseInt(document.getElementById('qm-order').value,10);
-  const rows=[...document.querySelectorAll('#qm-options .option-editor')];
-  const options=rows.map(r=>r.querySelector('.qm-opt').value.trim()),correctIndex=rows.findIndex(r=>r.querySelector('input[type="radio"]').checked);
-  if(!text||!Number.isInteger(order)||order<1||!options[0]||!options[1]||!options[2]||correctIndex<0){alert('Please fill in the question, number, at least options A–C, and select the correct answer.');return;}
-  const finalOptions=options[3]?options:options.slice(0,3);
-  if(correctIndex>=finalOptions.length){alert('The selected correct answer must be one of the filled options.');return;}
-  if(editId) await Data.updateQuestion(editId,{text,options:finalOptions,correctIndex,order});
-  else await Data.addQuestion(m.testId,m.sectionId,{text,options:finalOptions,correctIndex,order});
-  state.modal=null;render();
-}
-
-/* ============ DRAG & DROP ORDERING ============ */
-let dragItem=null,longPressTimer=null;
-document.addEventListener('dragstart',e=>{const x=e.target.closest('.sortable-card,.option-editor');if(!x)return;dragItem=x;x.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
-document.addEventListener('dragend',e=>{const x=e.target.closest('.sortable-card,.option-editor');if(x)x.classList.remove('dragging','drag-over');document.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'));dragItem=null;});
-document.addEventListener('dragover',e=>{const x=e.target.closest('.sortable-card,.option-editor');if(!dragItem||!x||x===dragItem)return;if(dragItem.classList.contains('sortable-card')!==x.classList.contains('sortable-card'))return;e.preventDefault();x.classList.add('drag-over');});
-document.addEventListener('drop',async e=>{
-  const x=e.target.closest('.sortable-card,.option-editor');if(!dragItem||!x||x===dragItem)return;
-  if(dragItem.classList.contains('sortable-card')!==x.classList.contains('sortable-card'))return;e.preventDefault();
-  const p=x.parentElement,r=x.getBoundingClientRect();if(e.clientY<r.top+r.height/2)p.insertBefore(dragItem,x);else p.insertBefore(dragItem,x.nextSibling);
-  if(dragItem.classList.contains('sortable-card')){
-    const items=[...p.querySelectorAll('.sortable-card')],kind=dragItem.dataset.sortKind;
-    if(kind==='test')await Data.reorderTests(dragItem.dataset.sectionId,items.map(x=>x.dataset.id));else await Data.reorderQuestions(dragItem.dataset.testId,items.map(x=>x.dataset.id));
-    toast('Order updated ✓');render();
-  }else{
-    [...p.querySelectorAll('.option-editor')].forEach((row,i)=>{row.dataset.optIndex=i;row.querySelector('input[type="radio"]').value=i;row.querySelector('.qm-opt').placeholder=`Option ${letterOf(i)}${i===3?' (optional)':''}`});
-    toast('Answer order updated ✓');
+  const m = state.modal;
+  const text = document.getElementById('qm-text').value.trim();
+  const orderInput = document.getElementById('qm-order');
+  const orderVal = orderInput && orderInput.value!=='' ? parseInt(orderInput.value,10) : null;
+  const optsContainer = document.getElementById('question-modal-options');
+  const rows = optsContainer ? Array.from(optsContainer.querySelectorAll(':scope > .opt-drag-row')) : [];
+  const rawOptions = rows.map(r => r.querySelector('.qm-opt-input').value.trim());
+  let correctIndex = -1;
+  rows.forEach((r,i)=>{ if(r.querySelector('.qm-radio').checked) correctIndex = i; });
+  if(!text || !rawOptions[0] || !rawOptions[1] || !rawOptions[2] || correctIndex===-1){
+    alert('Please fill in the question, at least options A–C, and select the correct answer.');
+    return;
   }
-  dragItem=null;
-});
-document.addEventListener('pointerdown',e=>{const h=e.target.closest('.drag-handle'),item=h?.closest('.sortable-card,.option-editor');if(!item)return;clearTimeout(longPressTimer);longPressTimer=setTimeout(()=>item.setAttribute('draggable','true'),450);});
-document.addEventListener('pointerup',()=>clearTimeout(longPressTimer));document.addEventListener('pointercancel',()=>clearTimeout(longPressTimer));
+  const options = rawOptions[3] ? rawOptions : rawOptions.slice(0,3);
+  if(correctIndex >= options.length){
+    alert('The selected correct answer must be one of the filled-in options.');
+    return;
+  }
+  const data = { text, options, correctIndex };
+  if(orderVal!==null && !isNaN(orderVal)) data.order = orderVal;
+  if(editId){
+    await Data.updateQuestion(editId, data);
+  } else {
+    await Data.addQuestion(m.testId, m.sectionId, data);
+  }
+  state.modal = null;
+  render();
+}
 
 /* ============ GLOBAL EVENT BINDING (once) ============ */
 async function onAppClick(e){
   const t = e.target.closest('[data-action]');
   if(!t) return;
+  if(t.tagName==='INPUT'){ return; } // let checkboxes toggle natively; handled by the 'change' listener
   e.preventDefault();
   const action = t.dataset.action;
   switch(action){
@@ -1555,6 +1759,8 @@ async function onAppClick(e){
     case 'review-list': await startReviewListAction(t.dataset.source); break;
 
     case 'start-quiz': await startQuizAction(t.dataset.scope, t.dataset.sectionId, t.dataset.testId); break;
+    case 'start-offline-quiz': await startOfflineQuizAction(t.dataset.scope, t.dataset.sectionId, t.dataset.testId); break;
+    case 'refresh-offline': await refreshOfflineData(); break;
     case 'select-option': selectOption(parseInt(t.dataset.index,10)); break;
     case 'toggle-save': await toggleSave(); break;
     case 'toggle-review': toggleReview(); break;
@@ -1569,7 +1775,7 @@ async function onAppClick(e){
     case 'edit-section': openEditSectionModal(t.dataset.id, t.dataset.name); break;
     case 'delete-section': openDeleteSectionConfirm(t.dataset.id, t.dataset.name); break;
     case 'add-test': openAddTestChoiceModal(t.dataset.sectionId); break;
-    case 'edit-test-title': openEditTestTitleModal(t.dataset.id,t.dataset.sectionId,t.dataset.title,t.dataset.order); break;
+    case 'edit-test-title': openEditTestTitleModal(t.dataset.id, t.dataset.sectionId, t.dataset.title, t.dataset.order); break;
     case 'delete-test': openDeleteTestConfirm(t.dataset.id, t.dataset.sectionId, t.dataset.title); break;
     case 'add-question': openQuestionModal(t.dataset.testId, t.dataset.sectionId); break;
     case 'edit-question': await openEditQuestionModal(t.dataset.id, t.dataset.testId, t.dataset.sectionId); break;
@@ -1579,10 +1785,12 @@ async function onAppClick(e){
     case 'modal-choice': await handleModalChoice(t.dataset.value); break;
     case 'modal-quickadd-submit': await handleQuickAddSubmit(); break;
     case 'modal-question-submit': await handleQuestionSubmit(t.dataset.editId || null); break;
-    case 'offline-refresh': await refreshOffline(); break;
-    case 'offline-section': navigate(`#/user/offline/${t.dataset.sectionId}`); break;
-    case 'offline-test': startOfflineTest(t.dataset.testId,t.dataset.sectionId); break;
   }
+}
+async function onAppChange(e){
+  const t = e.target.closest('[data-action]');
+  if(!t) return;
+  if(t.dataset.action==='toggle-offline'){ await toggleOfflineMode(t.checked); }
 }
 async function onAppSubmit(e){
   if(e.target.id === 'login-form'){
@@ -1618,6 +1826,101 @@ function clearSession(){
   try{ localStorage.removeItem('step_session'); }catch(e){}
 }
 
+/* ============ OFFLINE MODE (download sections/tests/questions for local browsing) ============ */
+function toast(msg){
+  const t = document.getElementById('toast'); if(!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function offlineBlobKey(){ return 'step_offline_' + (state.user ? state.user.number : ''); }
+function offlineToggleKey(){ return 'step_offline_on_' + (state.user ? state.user.number : ''); }
+function offlineEnabled(){ return state.user ? localStorage.getItem(offlineToggleKey())==='1' : false; }
+function setOfflineEnabled(v){ if(state.user) try{ localStorage.setItem(offlineToggleKey(), v?'1':'0'); }catch(e){} }
+function getOfflineBlob(){
+  if(!state.user) return null;
+  try{ const v = localStorage.getItem(offlineBlobKey()); return v ? JSON.parse(v) : null; }catch(e){ return null; }
+}
+function saveOfflineBlob(b){
+  if(!state.user) return false;
+  try{ b.syncedAt = Date.now(); localStorage.setItem(offlineBlobKey(), JSON.stringify(b)); return true; }
+  catch(e){ console.error('offline save failed', e); return false; }
+}
+async function downloadOfflineData(){
+  const [secSnap, testSnap, qSnap] = await Promise.all([ getDocs(sectionsCol), getDocs(testsCol), getDocs(questionsCol) ]);
+  const sections = secSnap.docs.map(d=>({ id:d.id, name:d.data().name }));
+  const tests = testSnap.docs.map(d=>({ id:d.id, sectionId:d.data().sectionId, title:d.data().title, order: (typeof d.data().order==='number'?d.data().order:0) }));
+  const questions = qSnap.docs.map(d=>({
+    id:d.id, testId:d.data().testId, sectionId:d.data().sectionId, text:d.data().text,
+    options:d.data().options, correctIndex:d.data().correctIndex, order: (typeof d.data().order==='number'?d.data().order:0)
+  }));
+  const ok = saveOfflineBlob({ sections, tests, questions });
+  if(!ok) throw new Error('Could not save the offline copy (storage full or unavailable)');
+  return { sections, tests, questions };
+}
+async function toggleOfflineMode(v){
+  setOfflineEnabled(v);
+  if(v){
+    toast('Downloading offline copy...');
+    try{ await downloadOfflineData(); toast('Offline copy downloaded ✓'); }
+    catch(e){ console.error(e); toast('Could not download right now — check your connection'); }
+  } else {
+    toast('Offline downloads turned off');
+  }
+  render();
+}
+async function refreshOfflineData(){
+  toast('Refreshing offline data...');
+  try{ await downloadOfflineData(); toast('Offline data refreshed ✓'); }
+  catch(e){ console.error(e); toast('Could not refresh — check your connection'); }
+  render();
+}
+function offlineTestsForSection(sectionId){
+  const blob = getOfflineBlob();
+  if(!blob) return [];
+  return sortByOrder((blob.tests||[]).filter(t=>t.sectionId===sectionId));
+}
+function offlineQuestionsForTest(testId){
+  const blob = getOfflineBlob();
+  if(!blob) return [];
+  return sortByOrder((blob.questions||[]).filter(q=>q.testId===testId));
+}
+function renderOfflineSections(){
+  const blob = getOfflineBlob();
+  if(!blob || !blob.sections || !blob.sections.length){
+    return emptyBlock('No offline copy yet. Turn on "Download Sections" in the menu while you have an internet connection.');
+  }
+  return `
+  <h1 class="page-title">Offline Sections</h1>
+  <p class="page-sub">Last synced: ${blob.syncedAt ? new Date(blob.syncedAt).toLocaleString('en-US') : '—'}</p>
+  <button class="btn btn-amber" style="margin-bottom:16px;" data-action="start-offline-quiz" data-scope="offlineAll">Test All Offline Sections</button>
+  <div class="grid grid-2">
+  ${blob.sections.map(s=>{
+    const count = (blob.questions||[]).filter(q=>q.sectionId===s.id).length;
+    return `<div class="card clickable" data-action="go" data-hash="#/user/offline/${s.id}">
+      <div class="row-between"><div style="font-weight:700;font-size:16px;">${esc(s.name)}</div><span style="color:var(--teal);">${ICON.section}</span></div>
+      <div class="muted" style="font-size:12.5px;margin-top:6px;">${count} question(s)</div>
+    </div>`;
+  }).join('')}
+  </div>`;
+}
+function renderOfflineSectionTests(sectionId){
+  const blob = getOfflineBlob();
+  if(!blob) return emptyBlock('No offline copy yet.');
+  const sec = (blob.sections||[]).find(s=>s.id===sectionId);
+  const tests = offlineTestsForSection(sectionId);
+  return `
+  <h1 class="page-title">${esc(sec ? sec.name : 'Section')} <span class="offline-tag">(offline)</span></h1>
+  <p class="page-sub">Choose a test to begin, or run the whole section — no internet needed.</p>
+  ${tests.length ? `<button class="btn btn-amber" style="margin-bottom:16px;" data-action="start-offline-quiz" data-scope="offlineSectionAll" data-section-id="${sectionId}">Test All Tests in This Section</button>` : ''}
+  ${tests.length===0 ? emptyBlock('No tests cached for this section yet.') :
+    tests.map(t=>`
+      <div class="card clickable" data-action="start-offline-quiz" data-scope="offlineTest" data-section-id="${sectionId}" data-test-id="${t.id}">
+        <div class="row-between"><div style="font-weight:700;font-size:15.5px;"><span class="order-badge">${t.order!=null?t.order:'—'}</span>${esc(t.title)}</div><span style="color:var(--teal);">${ICON.check}</span></div>
+      </div>`).join('')}
+  `;
+}
+
 async function initApp(){
   let saved = null;
   try{ saved = JSON.parse(localStorage.getItem('step_session') || 'null'); }catch(e){}
@@ -1639,6 +1942,7 @@ async function initApp(){
 }
 
 app.addEventListener('click', onAppClick);
+app.addEventListener('change', onAppChange);
 app.addEventListener('submit', onAppSubmit);
 window.addEventListener('hashchange', render);
 initApp();
