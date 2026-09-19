@@ -306,6 +306,7 @@ const questionsCol = collection(db,'questions');
 const attemptsCol = collection(db,'attempts');
 const savedCol = collection(db,'saved');
 const wrongCol = collection(db,'wrong');
+const settingsDoc = doc(db,'settings','app');
 
 const ADMIN_NUMBER = '731';
 
@@ -334,6 +335,7 @@ const ICON = {
   refresh:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>`,
   drag:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`,
   home:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>`,
+  settings:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.13.32.32.61.57.85.24.24.53.43.85.57.32.13.66.2 1 .21H22a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
 };
 
 /* ============ HELPERS ============ */
@@ -727,6 +729,17 @@ const Data = {
     const snap = await getDocs(query(wrongCol, where('userId','==',userId)));
     return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data(), createdAt:d.data().updatedAt})), 'desc');
   },
+
+  // settings
+  async getSettings(){
+    try{
+      const snap = await getDoc(settingsDoc);
+      return snap.exists() ? { liveGrading:false, ...snap.data() } : { liveGrading:false };
+    }catch(e){ console.error('getSettings failed', e); return { liveGrading:false }; }
+  },
+  async updateSettings(patch){
+    await setDoc(settingsDoc, patch, { merge:true });
+  },
 };
 
 /* ============ STATE ============ */
@@ -738,6 +751,7 @@ const state = {
   quiz: null,       // active quiz session
   lastAttempt: null,// cached just-finished attempt for result screen
   cache: {},        // misc per-render cache
+  settings: { liveGrading:false }, // global app settings loaded from Firestore
 };
 
 const app = document.getElementById('app');
@@ -1310,10 +1324,24 @@ function renderQuizScreen(){
   </div>
   <div class="card">
     <div class="q-text">${esc(q.text)}</div>
-    ${q.options.map((opt,i)=>`
-      <div class="option ${selected===i?'selected':''}" data-action="select-option" data-index="${i}">
+    ${q.options.map((opt,i)=>{
+      const liveOn = state.settings && state.settings.liveGrading;
+      const answered = selected!==undefined;
+      let cls = selected===i ? 'selected' : '';
+      let clickable = true;
+      if(liveOn && answered){
+        clickable = false;
+        if(i===q.correctIndex) cls = 'correct';
+        else if(i===selected) cls = 'wrong';
+        else cls = '';
+      }
+      return `<div class="option ${cls}" ${clickable?`data-action="select-option"`:''} data-index="${i}" style="${clickable?'':'cursor:default;'}">
         <span class="letter">${letterOf(i)}</span><span>${esc(opt)}</span>
-      </div>`).join('')}
+      </div>`;
+    }).join('')}
+    ${state.settings && state.settings.liveGrading && selected!==undefined
+      ? `<div class="review-note" style="margin-top:4px;margin-bottom:0;">${selected===q.correctIndex ? '✅ Correct!' : '❌ Incorrect — the correct answer is highlighted above.'}</div>`
+      : ''}
   </div>
   <div class="qpalette">
     ${quiz.questions.map((qq,i)=>`
@@ -1343,6 +1371,7 @@ function toggleReview(){
 }
 function selectOption(idx){
   const quiz = state.quiz; const q = currentQuestion();
+  if(state.settings && state.settings.liveGrading && quiz.answers[q.id]!==undefined) return; // locked after first pick
   quiz.answers[q.id] = idx; render();
 }
 function gotoQuestion(idx){
@@ -1502,6 +1531,7 @@ async function renderAdminRoute(segs){
     }
     return await renderAdminSections();
   }
+  if(section==='settings') return await renderAdminSettings();
   return renderLoadingScreen();
 }
 
@@ -1530,6 +1560,15 @@ async function renderAdminSections(){
   <h1 class="page-title">Manage Sections</h1>
   <p class="page-sub">Sections group tests together for your users.</p>
   <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-section">${ICON.plus} Add Section</button>
+  <div class="card clickable" data-action="go" data-hash="#/admin/settings" style="border-color:var(--border);">
+    <div class="row-between">
+      <div style="flex:1;font-weight:700;font-size:15.5px;display:flex;align-items:center;gap:10px;">
+        <span style="color:var(--amber);display:flex;">${ICON.settings}</span> Settings
+      </div>
+      <span class="muted" style="font-size:12.5px;">Live grading & app options →</span>
+    </div>
+  </div>
+  <hr class="sep" />
   ${sections.length===0 ? emptyBlock('No sections yet — add your first one.') :
     sections.map(s=>`
       <div class="card">
@@ -1541,6 +1580,26 @@ async function renderAdminSections(){
           </div>
         </div>
       </div>`).join('')}`;
+}
+
+async function renderAdminSettings(){
+  const s = await Data.getSettings();
+  state.settings = s;
+  return `
+  <h1 class="page-title">Settings</h1>
+  <p class="page-sub">App-wide options that apply to every user.</p>
+  <div class="card">
+    <div class="row-between">
+      <div style="flex:1;padding-right:12px;">
+        <div style="font-weight:700;font-size:15.5px;margin-bottom:4px;">Live Grading</div>
+        <div class="muted" style="font-size:13px;line-height:1.6;">
+          When ON, users see whether their answer is correct or wrong the moment they tap an option, while taking any quiz (single test, all tests in a section, or all sections). Each question locks after the first pick.<br/>
+          When OFF (default), answers stay hidden and the whole test is graded only after the user taps <b>Submit Test</b>, same as it works today.
+        </div>
+      </div>
+      <label class="switch"><input type="checkbox" data-action="toggle-live-grading" ${s.liveGrading?'checked':''} /><span class="switch-slider"></span></label>
+    </div>
+  </div>`;
 }
 
 async function renderAdminSectionTests(sectionId){
@@ -1791,6 +1850,18 @@ async function onAppChange(e){
   const t = e.target.closest('[data-action]');
   if(!t) return;
   if(t.dataset.action==='toggle-offline'){ await toggleOfflineMode(t.checked); }
+  else if(t.dataset.action==='toggle-live-grading'){ await toggleLiveGrading(t.checked); }
+}
+async function toggleLiveGrading(v){
+  state.settings.liveGrading = v;
+  try{
+    await Data.updateSettings({ liveGrading: v });
+    toast(v ? 'Live grading turned ON' : 'Live grading turned OFF');
+  }catch(e){
+    console.error('toggleLiveGrading failed', e);
+    toast('Could not save the setting — check your connection');
+  }
+  render();
 }
 async function onAppSubmit(e){
   if(e.target.id === 'login-form'){
@@ -1924,9 +1995,11 @@ function renderOfflineSectionTests(sectionId){
 async function initApp(){
   let saved = null;
   try{ saved = JSON.parse(localStorage.getItem('step_session') || 'null'); }catch(e){}
+  const settingsPromise = Data.getSettings().catch(()=>({liveGrading:false}));
   if(saved && saved.number){
     try{
-      const u = await Data.getUser(saved.number);
+      const [u, s] = await Promise.all([ Data.getUser(saved.number), settingsPromise ]);
+      state.settings = s;
       if(u){
         state.user = u;
         if(!location.hash || location.hash==='#/login' || location.hash==='#/name'){
@@ -1936,6 +2009,8 @@ async function initApp(){
         clearSession();
       }
     }catch(e){ clearSession(); }
+  } else {
+    state.settings = await settingsPromise;
   }
   if(!location.hash) location.hash = '#/login';
   render();
