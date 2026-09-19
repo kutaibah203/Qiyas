@@ -124,6 +124,7 @@ label{display:block;font-size:13px;color:var(--text-dim);margin-bottom:6px;font-
 .answer.correct{border-color:var(--success);background:var(--success-dim);}
 .answer.correct .letter{background:var(--success);border-color:var(--success);color:#0c2016;}
 .answer.wrong{border-color:var(--danger);background:var(--danger-dim);}
+.answer.locked{cursor:default;pointer-events:none;}
 .answer.wrong .letter{background:var(--danger);border-color:var(--danger);color:#2c0f16;}
 .quiz-tools{display:flex;gap:10px;margin-bottom:14px;}
 .tool-btn{width:44px;height:44px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
@@ -461,6 +462,31 @@ async function deleteQuestion(id){
   if(typeof questionCache!=='undefined') delete questionCache[id];
 }
 
+/* ================= APP SETTINGS (global, set by admin — stored in Firestore: settings/app) ================= */
+const SETTINGS_LS_KEY = 'qudurat_settings_cache';
+let appSettings = (function(){
+  try{ const r = localStorage.getItem(SETTINGS_LS_KEY); if(r) return Object.assign({instantFeedback:false}, JSON.parse(r)); }catch(e){}
+  return {instantFeedback:false};
+})();
+function cacheSettings(){ try{ localStorage.setItem(SETTINGS_LS_KEY, JSON.stringify(appSettings)); }catch(e){} }
+async function refreshSettings(timeoutMs){
+  try{
+    const snap = await Promise.race([
+      db.collection('settings').doc('app').get(),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), timeoutMs||2500))
+    ]);
+    const d = snap.exists ? snap.data() : {};
+    appSettings = { instantFeedback: !!d.instantFeedback };
+    cacheSettings();
+  }catch(e){ console.error('refreshSettings failed, using cached value', e); }
+  return appSettings;
+}
+async function saveSetting(key, value){
+  await db.collection('settings').doc('app').set({[key]:value}, {merge:true});
+  appSettings = {...appSettings, [key]:value};
+  cacheSettings();
+}
+
 async function addAttempt(userNumber, attempt){
   const ref = await db.collection('users').doc(userNumber).collection('attempts').add({
     ...attempt, createdAt:FieldValue.serverTimestamp()
@@ -580,6 +606,7 @@ function renderDrawer(){
   `;
   const adminItems = `
     <a class="drawer-item ${state.route.name==='admin-sections'?'active':''}" onclick="nav('admin-sections')"><span class="ic">${iconGrid()}</span> إدارة الأقسام</a>
+    <a class="drawer-item ${state.route.name==='admin-settings'?'active':''}" onclick="nav('admin-settings')"><span class="ic">${iconSettings()}</span> الإعدادات</a>
     <a class="drawer-item ${state.route.name==='home'?'active':''}" onclick="nav('home')"><span class="ic">${iconHome()}</span> الرئيسية</a>
   `;
   return `
@@ -618,6 +645,7 @@ function iconChev(){ return svgIcon('<polyline points="15 18 9 12 15 6"/>'); }
 function iconBack(){ return svgIcon('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'); }
 function iconDownload(){ return svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'); }
 function iconRefresh(){ return svgIcon('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>'); }
+function iconSettings(){ return svgIcon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'); }
 function iconCopy(){ return svgIcon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'); }
 
 /* ================= LOGIN ================= */
@@ -846,11 +874,13 @@ async function startQuiz(sectionId){
     showRenderError(e);
   }
 }
-function beginQuizSession(questions, sectionName, sectionId, isOfflineQuiz){
+async function beginQuizSession(questions, sectionName, sectionId, isOfflineQuiz){
+  if(!isOfflineQuiz) await refreshSettings();   // آخر قيمة لإعداد التصحيح المباشر (وفي وضع بدون اتصال تُستخدم القيمة المخزنة)
   if(state.route && state.route.name && state.route.name!=='quiz'){ state.history.push({name:state.route.name, params:state.route.params}); }
   state.quiz = {
     sectionId, sectionName,
     isOfflineQuiz: !!isOfflineQuiz,
+    instantFeedback: !!appSettings.instantFeedback,
     questions, index:0,
     answers: questions.map(q=>({questionId:q.id, sectionId:q.sectionId, type:q.type, selectedIndex:null, saved:false, reviewed:false, timeSpentSeconds:0})),
     startedAt: Date.now(),
@@ -903,14 +933,27 @@ function renderQuizScreen(){
     bodyHtml = `<div class="q-instruction">${instr}</div><div class="q-text">${escapeHtml(q.sentence)}</div>`;
   }
 
+  const revealed = !!quiz.instantFeedback && ans.selectedIndex!==null;   // التصحيح المباشر: يظهر فور اختيار الإجابة
   const answersHtml = q.answers.map((a,i)=>{
     const label = q.type==='analogy' ? `${a.w1} : ${a.w2}` : a;
-    const sel = ans.selectedIndex===i ? 'selected':'';
-    return `<div class="answer ${sel}" onclick="selectAnswer(${i})">
+    let cls = '';
+    if(revealed){
+      if(i===q.correctIndex) cls = 'correct locked';
+      else if(i===ans.selectedIndex) cls = 'wrong locked';
+      else cls = 'locked';
+    }else if(ans.selectedIndex===i){
+      cls = 'selected';
+    }
+    return `<div class="answer ${cls}" ${revealed?'':`onclick="selectAnswer(${i})"`}>
       <div class="letter">${LETTERS[i]}</div>
       <div>${escapeHtml(label)}</div>
     </div>`;
   }).join('');
+  const feedbackHtml = revealed
+    ? (ans.selectedIndex===q.correctIndex
+        ? `<div style="margin-top:6px;font-size:13px;font-weight:700;color:var(--success);">✓ إجابة صحيحة</div>`
+        : `<div style="margin-top:6px;font-size:13px;font-weight:700;color:var(--danger);">✗ إجابة خاطئة — الصحيحة هي ${LETTERS[q.correctIndex]}</div>`)
+    : '';
 
   const isLast = quiz.index === quiz.questions.length-1;
 
@@ -921,7 +964,7 @@ function renderQuizScreen(){
       <div class="tool-btn ${saved?'active':''}" onclick="toggleSaveCurrent()" title="حفظ السؤال">${iconBookmark(saved)}</div>
       <div class="tool-btn ${reviewed?'review-active':''}" onclick="toggleReviewCurrent()" title="إضافة للمراجعة">${iconCircle(reviewed)}</div>
     </div>
-    <div class="q-card">${bodyHtml}<div style="margin-top:14px;">${answersHtml}</div></div>
+    <div class="q-card">${bodyHtml}<div style="margin-top:14px;">${answersHtml}${feedbackHtml}</div></div>
     <div class="btn-row">
       ${quiz.index>0?`<button class="btn" onclick="prevQuestion()">السابق</button>`:''}
       <button class="btn btn-primary" onclick="${isLast?'goToReviewScreen()':'nextQuestion()'}">${isLast?'مراجعة قبل الإرسال':'التالي'}</button>
@@ -937,6 +980,7 @@ function showPassage(){
   `, true);
 }
 function selectAnswer(i){
+  if(state.quiz.instantFeedback && currentAns().selectedIndex!==null) return;   // مقفول بعد التصحيح المباشر
   currentAns().selectedIndex = i;
   renderQuizScreen();
 }
@@ -1204,7 +1248,8 @@ function openAddSectionChoice(){
   openModal(`
     <div class="modal-head"><h3 style="margin:0;">إضافة قسم</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
     <button class="btn btn-primary" style="margin-bottom:10px;" onclick="closeModal();startManualAddSection();">إضافة يدوية</button>
-    <button class="btn btn-outline" onclick="closeModal();startQuickAddSection();">إضافة سريعة</button>
+    <button class="btn btn-outline" style="margin-bottom:10px;" onclick="closeModal();startQuickAddSection();">إضافة سريعة</button>
+    <button class="btn btn-outline" onclick="closeModal();startMultiAddSections();">إضافة أقسام</button>
   `, true);
 }
 async function startManualAddSection(){
@@ -1414,6 +1459,27 @@ function extractBetween(text, startLabel, endLabels){
   });
   return text.slice(from, endIdx).trim();
 }
+function toWesternDigits(str){
+  return String(str).replace(/[٠-٩]/g, d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+}
+/* تقسيم الإجابات المرقمة (1 2 3 4) بالترتيب؛ يتعامل بشكل صحيح مع إجابات تحتوي أرقاماً مثل "12 إلى 35" أو "2 : 8" */
+function splitNumberedAnswers(text){
+  const s = text.trim();
+  const m1 = s.match(/^1\s+/);
+  if(!m1) return null;
+  const parts = [];
+  let pos = m1[0].length;
+  for(let k=2;k<=4;k++){
+    const re = new RegExp('\\s'+k+'\\s','g');
+    re.lastIndex = pos;
+    const m = re.exec(s);
+    if(!m) break;
+    parts.push(s.slice(pos, m.index).trim());
+    pos = m.index + m[0].length;
+  }
+  parts.push(s.slice(pos).trim());
+  return parts;
+}
 function parseQuickAdd(rawText){
   // normalize: collapse all whitespace/newlines into single spaces so the parser
   // works whether the admin writes each field on its own line or as continuous text.
@@ -1422,8 +1488,11 @@ function parseQuickAdd(rawText){
   const titleRaw = extractBetween(norm, 'عنوان ورقم القسم:', ['نوع السؤال:']);
   if(titleRaw===null) throw new Error('لم أجد "عنوان ورقم القسم:" في النص');
   const titleParts = titleRaw.split(/\s+/);
-  const secNumber = titleParts[0] || '';
-  const secTitle = titleParts.slice(1).join(' ') || titleRaw;
+  const isNumTok = t => /^[0-9٠-٩]+$/.test(t);
+  let secNumber = '', titleStart = 0;
+  if(titleParts.length && isNumTok(titleParts[0])){ secNumber = toWesternDigits(titleParts[0]); titleStart = 1; }
+  // الرقم الأول يُحفظ كرقم للقسم، وباقي العنوان (بما فيه الرقم الهندي مثل ١١) يُحفظ كاسم للقسم
+  const secTitle = titleParts.slice(titleStart).join(' ') || titleRaw;
 
   const blocks = norm.split(/(?=نوع السؤال:)/g).slice(1);
   if(blocks.length===0) throw new Error('لم أجد أي سؤال (تأكد من كتابة "نوع السؤال:" قبل كل سؤال)');
@@ -1436,9 +1505,9 @@ function parseQuickAdd(rawText){
     const typeKey = Object.keys(QTYPES).find(k=>QTYPES[k].label===typeLabel);
     if(!typeKey) throw new Error(`نوع السؤال غير معروف في السؤال رقم ${n}: "${typeLabel}"`);
 
-    const qNumMatch = block.match(/رقم السؤال:\s*(\d+)/);
+    const qNumMatch = block.match(/رقم السؤال:\s*([0-9٠-٩]+)/);
     if(!qNumMatch) throw new Error(`لم أجد "رقم السؤال:" في السؤال رقم ${n} (بالترتيب داخل النص)`);
-    const qOrder = parseInt(qNumMatch[1],10);
+    const qOrder = parseInt(toWesternDigits(qNumMatch[1]),10);
 
     const answersIdx = block.indexOf('الإجابات:');
     if(answersIdx===-1) throw new Error(`لم أجد "الإجابات:" في السؤال رقم ${n}`);
@@ -1463,7 +1532,7 @@ function parseQuickAdd(rawText){
     let answers, correctIndex=-1;
     if(typeKey==='analogy'){
       const chunks = answersRaw.split(/(?=[1-4]\s*المفردة الأولى:)/g).map(c=>c.trim()).filter(Boolean);
-      if(chunks.length<2) throw new Error(`تعذّر تقسيم إجابات التناظر في السؤال رقم ${n}`);
+      if(chunks.length<1) throw new Error(`تعذّر تقسيم إجابات التناظر في السؤال رقم ${n}`);
       answers = chunks.map((chunk,i)=>{
         if(/---\s*هذه الإجابة الصحيحة/.test(chunk)) correctIndex=i;
         const w1 = extractBetween(chunk,'المفردة الأولى:',['المفردة الثانية:']) || '';
@@ -1472,11 +1541,11 @@ function parseQuickAdd(rawText){
         return { w1, w2 };
       });
     }else{
-      const chunks = answersRaw.split(/(?=[1-4]\s)/g).map(c=>c.trim()).filter(Boolean);
-      if(chunks.length<2) throw new Error(`تعذّر تقسيم الإجابات في السؤال رقم ${n} (تأكد من ترقيمها 1 2 3 4)`);
+      const chunks = splitNumberedAnswers(answersRaw);
+      if(!chunks || chunks.length<1) throw new Error(`تعذّر تقسيم الإجابات في السؤال رقم ${n} (تأكد من ترقيمها 1 2 3 4)`);
       answers = chunks.map((chunk,i)=>{
         if(/---\s*هذه الإجابة الصحيحة/.test(chunk)) correctIndex=i;
-        return chunk.replace(/^[1-4]\s*/,'').replace(/---\s*هذه الإجابة الصحيحة.*$/,'').trim();
+        return chunk.replace(/---\s*هذه الإجابة الصحيحة.*$/,'').trim();
       });
     }
     if(correctIndex===-1) throw new Error(`لم أجد إجابة معلّمة بـ "--- هذه الإجابة الصحيحة" في السؤال رقم ${n}`);
@@ -1510,6 +1579,172 @@ function previewQuickAdd(){
     document.getElementById('quickSaveBtn').style.display='none';
   }
 }
+function buildQuestionData(q){
+  const data = {correctIndex:q.correctIndex, answers:q.answers, order:q.order};
+  if(q.word1!==undefined){ data.word1=q.word1; data.word2=q.word2; }
+  if(q.sentence!==undefined) data.sentence=q.sentence;
+  if(q.passage!==undefined){ data.passage=q.passage; data.question=q.question; }
+  return data;
+}
+async function saveParsedSectionBatch(parsed){
+  const secRef = db.collection('sections').doc();
+  let batch = db.batch(); let ops = 0;
+  batch.set(secRef, {name:parsed.secTitle, number:parsed.secNumber||'', createdAt:FieldValue.serverTimestamp()}); ops++;
+  for(const q of parsed.questions){
+    batch.set(db.collection('questions').doc(), {
+      sectionId:secRef.id, type:q.type, ...buildQuestionData(q), createdAt:FieldValue.serverTimestamp()
+    });
+    ops++;
+    if(ops>=400){ await batch.commit(); batch = db.batch(); ops = 0; }
+  }
+  if(ops>0) await batch.commit();
+  state.sectionsLoaded = false;
+  return secRef.id;
+}
+
+/* ================= ADMIN: MULTI ADD (إضافة أقسام) ================= */
+let multiParsed = null;
+let multiSaving = false;
+function renderAdminMultiAdd(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `
+    <div class="section-title">إضافة أقسام</div>
+    <div class="small-note card">
+      الصق نص عدة أقسام دفعة واحدة، كل قسم يبدأ بسطر "عنوان ورقم القسم:" ثم أسئلته بنفس تنسيق الإضافة السريعة. مثال مختصر:
+      <pre style="white-space:pre-wrap;font-size:11.5px;color:var(--text-faint);margin-top:8px;">عنوان ورقم القسم: 11 ١١ الحج والمواليد
+
+نوع السؤال: التناظر اللفظي
+رقم السؤال: 1
+المفردة الأولى: مد
+المفردة الثانية: جزر
+الإجابات:
+1 المفردة الأولى: كريم المفردة الثانية: بخيل --- هذه الإجابة الصحيحة
+2 المفردة الأولى: شمس المفردة الثانية: ليل
+
+عنوان ورقم القسم: 12 ١٢ إنعدام الفقر
+
+نوع السؤال: إكمال الجمل
+رقم السؤال: 1
+الجملة: ..........
+الإجابات:
+1 ..... --- هذه الإجابة الصحيحة
+2 .....</pre>
+    </div>
+    <textarea id="multiAddText" placeholder="الصق نص الأقسام هنا..." style="min-height:260px;"></textarea>
+    <div class="btn-row">
+      <button class="btn" onclick="previewMultiAdd()">معاينة</button>
+      <button class="btn btn-primary" id="multiSaveBtn" style="display:none;" onclick="saveMultiAdd()">حفظ الأقسام والأسئلة</button>
+    </div>
+    <div id="multiPreview"></div>
+    <button class="btn btn-outline" style="margin-top:16px;" onclick="nav('admin-sections')">رجوع</button>
+  `;
+}
+function parseMultiSections(rawText){
+  const LABEL = 'عنوان ورقم القسم:';
+  const pieces = rawText.split(LABEL).slice(1);
+  if(pieces.length===0) throw new Error('لم أجد "عنوان ورقم القسم:" في النص');
+  const sections = [], errors = [];
+  pieces.forEach((piece,i)=>{
+    try{
+      sections.push(parseQuickAdd(LABEL + piece));
+    }catch(e){
+      const head = piece.trim().split(/\s+/).slice(0,4).join(' ');
+      errors.push(`القسم ${i+1} (${head}): ${e.message}`);
+    }
+  });
+  return { sections, errors };
+}
+function parsedCorrectText(q){
+  const a = q.answers[q.correctIndex];
+  return q.type==='analogy' ? (a.w1+' : '+a.w2) : a;
+}
+function renderMultiPreview(res, existingNames){
+  const box = document.getElementById('multiPreview');
+  const saveBtn = document.getElementById('multiSaveBtn');
+  const totalQ = res.sections.reduce((n,s)=>n+s.questions.length,0);
+  let html = '';
+  if(res.errors.length){
+    html += `<div class="card" style="border-color:var(--danger);color:var(--danger);margin-top:14px;">
+      <b>يوجد ${res.errors.length} خطأ في التنسيق (لن يتم الحفظ قبل إصلاحها):</b>
+      ${res.errors.map(e=>`<div style="margin-top:8px;font-size:13px;">• ${escapeHtml(e)}</div>`).join('')}
+    </div>`;
+  }
+  if(res.sections.length){
+    html += `<div class="card" style="margin-top:14px;">
+      <b>عدد الأقسام المستخرجة: ${res.sections.length}</b> <span class="chip">${totalQ} سؤال</span>
+    </div>`;
+    html += res.sections.map(sec=>{
+      const dup = existingNames.has(sec.secTitle);
+      return `
+      <details class="card" style="margin-bottom:10px;">
+        <summary style="cursor:pointer;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b>${escapeHtml(sec.secTitle)}</b>
+          ${sec.secNumber?`<span class="chip">${escapeHtml(sec.secNumber)}</span>`:''}
+          <span class="chip">${sec.questions.length} سؤال</span>
+          ${dup?`<span class="chip chip-danger">⚠ يوجد قسم بنفس الاسم مسبقاً</span>`:''}
+        </summary>
+        ${sec.questions.map(q=>`
+          <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+            <span class="type-badge">سؤال ${q.order} · ${QTYPES[q.type].label}</span>
+            ${q.answers.length<2?`<span class="chip" style="margin-right:6px;color:var(--accent);">⚠ إجابة واحدة فقط</span>`:''}
+            <div style="font-size:13.5px;margin-top:4px;">${escapeHtml(questionSummaryText(q))||'(بدون نص ظاهر)'}</div>
+            <div style="font-size:12px;color:var(--success);margin-top:3px;">الصحيحة: ${escapeHtml(parsedCorrectText(q))}</div>
+          </div>`).join('')}
+      </details>`;
+    }).join('');
+  }
+  box.innerHTML = html;
+  if(res.errors.length===0 && res.sections.length>0){
+    multiParsed = res;
+    saveBtn.textContent = `حفظ ${res.sections.length} أقسام (${totalQ} سؤال)`;
+    saveBtn.style.display = 'flex';
+  }else{
+    multiParsed = null;
+    saveBtn.style.display = 'none';
+  }
+}
+async function previewMultiAdd(){
+  const text = document.getElementById('multiAddText').value;
+  const box = document.getElementById('multiPreview');
+  const saveBtn = document.getElementById('multiSaveBtn');
+  multiParsed = null; saveBtn.style.display = 'none';
+  if(!text.trim()){ box.innerHTML=''; toast('الصق النص أولاً'); return; }
+  try{
+    const res = parseMultiSections(text);
+    let existingNames = new Set();
+    try{ const ex = await loadSections(true); existingNames = new Set(ex.map(x=>x.name)); }catch(e){}
+    renderMultiPreview(res, existingNames);
+  }catch(e){
+    box.innerHTML = `<div class="card" style="border-color:var(--danger);color:var(--danger);margin-top:14px;">خطأ في التنسيق: ${escapeHtml(e.message)}</div>`;
+  }
+}
+async function saveMultiAdd(){
+  if(!multiParsed || multiSaving) return;
+  multiSaving = true;
+  const btn = document.getElementById('multiSaveBtn');
+  const list = multiParsed.sections.slice();
+  let done = 0;
+  try{
+    for(let i=0;i<list.length;i++){
+      btn.textContent = `جارِ الحفظ... (${i+1} من ${list.length})`;
+      await saveParsedSectionBatch(list[i]);   // بالتسلسل ليبقى ترتيب الأقسام كما في النص
+      done++;
+    }
+    multiSaving = false;
+    toast(`تم حفظ ${done} أقسام بنجاح`);
+    nav('admin-sections');
+  }catch(e){
+    console.error(e);
+    multiSaving = false;
+    // نُبقي فقط الأقسام التي لم تُحفظ حتى لا تتكرر عند إعادة المحاولة
+    multiParsed = { sections: list.slice(done), errors: [] };
+    btn.textContent = `إعادة حفظ الأقسام المتبقية (${multiParsed.sections.length})`;
+    toast(`تم حفظ ${done} من ${list.length} وتعذّر إكمال الباقي`);
+    const box = document.getElementById('multiPreview');
+    if(box) box.insertAdjacentHTML('afterbegin', `<div class="card" style="border-color:var(--danger);color:var(--danger);margin-top:14px;">حدث خطأ أثناء الحفظ. تم حفظ ${done} من ${list.length} قسم. اضغط الزر لإعادة محاولة الأقسام المتبقية فقط.</div>`);
+  }
+}
+
 async function saveQuickAdd(){
   if(!quickParsed) return;
   document.getElementById('quickSaveBtn').textContent='جارِ الحفظ...';
@@ -1532,6 +1767,38 @@ async function saveQuickAdd(){
   }
 }
 
+/* ================= ADMIN: SETTINGS ================= */
+async function renderAdminSettings(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  await refreshSettings();
+  cont.innerHTML = `
+    <div class="section-title">الإعدادات</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;">
+        <div>
+          <div style="font-weight:700;">التصحيح المباشر</div>
+          <div class="small-note" style="margin-top:4px;">عند التفعيل يظهر تصحيح كل سؤال فور اختيار الإجابة أثناء الاختبار، ولا يمكن تغيير الإجابة بعدها. عند الإيقاف يكون التصحيح في نهاية الاختبار بعد الإرسال. ينطبق الإعداد على جميع المستخدمين.</div>
+        </div>
+        <label class="switch"><input type="checkbox" ${appSettings.instantFeedback?'checked':''} onchange="onToggleInstantFeedback(this)"><span class="switch-slider"></span></label>
+      </div>
+    </div>
+  `;
+}
+async function onToggleInstantFeedback(el){
+  const v = el.checked;
+  el.disabled = true;
+  try{
+    await saveSetting('instantFeedback', v);
+    toast(v ? 'تم تفعيل التصحيح المباشر' : 'تم إيقاف التصحيح المباشر');
+  }catch(e){
+    console.error(e);
+    el.checked = !v;
+    toast('تعذّر حفظ الإعداد');
+  }
+  el.disabled = false;
+}
+
 /* ================= ROUTER / RENDER ================= */
 async function render(){
   const app = document.getElementById('app');
@@ -1548,6 +1815,8 @@ async function render(){
     else if(r.name==='admin-section-edit') await renderAdminSectionEdit(r.params.id);
     else if(r.name==='admin-question-add'){ questionDraftType = null; await renderAdminQuestionAdd(r.params.sectionId, r.params.questionId); }
     else if(r.name==='admin-quick-add') renderAdminQuickAdd();
+    else if(r.name==='admin-multi-add') renderAdminMultiAdd();
+    else if(r.name==='admin-settings') await renderAdminSettings();
     else if(r.name==='quiz') renderQuizScreen();
     else if(r.name==='offline-sections') renderOfflineSections();
     else if(r.name==='offline-section-view') renderOfflineSectionView(r.params.id, r.params.name);
@@ -1573,6 +1842,7 @@ window.addEventListener('unhandledrejection', function(ev){
 
 /* patch: add quick-add entry point into admin sections choice modal already includes startQuickAddSection */
 function startQuickAddSection(){ nav('admin-quick-add'); }
+function startMultiAddSections(){ nav('admin-multi-add'); }
 
 /* ================= BOOT ================= */
 (async function boot(){
