@@ -1706,7 +1706,7 @@ function parseQuickAdd(rawText){
 /* يحلل كتلة سؤال واحدة (تبدأ بـ "نوع السؤال:"). requireOrder=true يفرض وجود "رقم السؤال:" (تُستخدم مع الأقسام)،
    requireOrder=false يتجاهله (تُستخدم مع الأسئلة المهمة التي لا رقم لها) */
 function parseQuestionBlock(block, n, requireOrder){
-  const typeLabel = extractBetween(block, 'نوع السؤال:', ['رقم السؤال:','المفردة الأولى:','النص:','الجملة:','الإجابات:']);
+  const typeLabel = extractBetween(block, 'نوع السؤال:', ['رقم السؤال:','المفردة الأولى:','النص:','السؤال:','الجملة:','الإجابات:']);
   const typeKey = Object.keys(QTYPES).find(k=>QTYPES[k].label===typeLabel);
   if(!typeKey) throw new Error(`نوع السؤال غير معروف في السؤال رقم ${n}: "${typeLabel}"`);
 
@@ -1728,9 +1728,10 @@ function parseQuestionBlock(block, n, requireOrder){
     word1 = extractBetween(header,'المفردة الأولى:',['المفردة الثانية:']) || '';
     word2 = extractBetween(header,'المفردة الثانية:',[]) || '';
   }else if(typeKey==='reading'){
+    const searchFrom0 = 'نوع السؤال:'.length; // block يبدأ حرفياً بـ"نوع السؤال:" التي تحوي هي نفسها كلمة "السؤال:"، فنتجاوزها هنا لتفادي التقاطها خطأً
     const passageStart = header.indexOf('النص:');
     const passageFrom = passageStart===-1? -1 : passageStart + 'النص:'.length;
-    const qLabelIdx = passageFrom===-1? -1 : header.indexOf('السؤال:', passageFrom);
+    const qLabelIdx = header.indexOf('السؤال:', passageFrom===-1? searchFrom0 : passageFrom);
     passage = passageFrom===-1? '' : (qLabelIdx===-1? header.slice(passageFrom).trim() : header.slice(passageFrom, qLabelIdx).trim());
     question = qLabelIdx===-1? '' : header.slice(qLabelIdx + 'السؤال:'.length).trim();
   }else if(typeKey==='contextual_error' || typeKey==='sentence_completion'){
