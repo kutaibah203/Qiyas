@@ -90,6 +90,11 @@ button{font-family:inherit;cursor:pointer;}
 .icon-action{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);
   display:flex;align-items:center;justify-content:center;color:var(--text-dim);flex-shrink:0;}
 .icon-action:hover{border-color:var(--danger);color:var(--danger);}
+.list-item.selectable{cursor:pointer;}
+.list-item.picked{border-color:var(--accent);background:var(--accent-dim);}
+.pick-box{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--text-faint);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;color:#1a1408;font-weight:900;font-size:13px;}
+.list-item.picked .pick-box{background:var(--accent);border-color:var(--accent);}
 
 input[type=text],input[type=number],textarea,select{
   width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-2);
@@ -194,6 +199,7 @@ const LETTERS = ['أ','ب','ج','د'];
 let state = {
   userNumber:null, isAdmin:false,
   sections:[], sectionsLoaded:false,
+  importantQuestions:[], importantLoaded:false,
   drawerOpen:false,
   route:{name:'login', params:{}},
   history:[],
@@ -447,6 +453,34 @@ async function nextOrderForSection(sectionId){
   const snap = await db.collection('questions').where('sectionId','==',sectionId).get();
   return snap.size;
 }
+/* ================= IMPORTANT QUESTIONS (admin-managed, global, not tied to a section) ================= */
+async function loadImportantQuestions(force){
+  if(state.importantLoaded && !force) return state.importantQuestions;
+  const snap = await db.collection('important_questions').get();
+  state.importantQuestions = sortByOrder(snap.docs.map(d=>({id:d.id,...d.data()})));
+  state.importantLoaded = true;
+  return state.importantQuestions;
+}
+async function addImportantQuestion(type, data){
+  let order = data.order;
+  if(order===undefined || order===null || isNaN(order)){
+    const list = await loadImportantQuestions(true);
+    order = list.length;
+  }
+  await db.collection('important_questions').add({type,...data,order,createdAt:FieldValue.serverTimestamp()});
+  state.importantLoaded = false;
+}
+async function updateImportantQuestion(id,type,data){
+  await db.collection('important_questions').doc(id).update({type,...data});
+  state.importantLoaded = false;
+  if(typeof questionCache!=='undefined') delete questionCache[id];
+}
+async function deleteImportantQuestion(id){
+  await db.collection('important_questions').doc(id).delete();
+  await db.collection('users').doc(state.userNumber||'').collection('wrong').doc(id).delete().catch(()=>{});
+  if(typeof questionCache!=='undefined') delete questionCache[id];
+  state.importantLoaded = false;
+}
 async function addQuestion(sectionId,type,data){
   let order = data.order;
   if(order===undefined || order===null || isNaN(order)) order = await nextOrderForSection(sectionId);
@@ -516,7 +550,7 @@ async function getWrongList(userNumber){
 }
 async function toggleSaved(userNumber, q, save){
   const ref = db.collection('users').doc(userNumber).collection('saved').doc(q.id);
-  if(save){ await ref.set({questionId:q.id, sectionId:q.sectionId, type:q.type, addedAt:FieldValue.serverTimestamp()}); }
+  if(save){ await ref.set({questionId:q.id, sectionId:q.sectionId||null, type:q.type, addedAt:FieldValue.serverTimestamp()}); }
   else{ await ref.delete(); }
 }
 async function getSavedList(userNumber){
@@ -590,6 +624,7 @@ function renderDrawer(){
     <a class="drawer-item ${state.route.name==='sections'?'active':''}" onclick="nav('sections')"><span class="ic">${iconGrid()}</span> الأقسام</a>
     <a class="drawer-item ${state.route.name==='wrong'?'active':''}" onclick="nav('wrong')"><span class="ic">${iconX()}</span> الأسئلة الخاطئة</a>
     <a class="drawer-item ${state.route.name==='saved'?'active':''}" onclick="nav('saved')"><span class="ic">${iconBookmark()}</span> الأسئلة المحفوظة</a>
+    <a class="drawer-item ${state.route.name==='important'?'active':''}" onclick="nav('important')"><span class="ic">${iconCheckSquare()}</span> الأسئلة المهمة</a>
     <a class="drawer-item ${state.route.name==='history'?'active':''}" onclick="nav('history')"><span class="ic">${iconClock()}</span> سجل اختبارات الأقسام</a>
     <a class="drawer-item ${state.route.name==='home'?'active':''}" onclick="nav('home')"><span class="ic">${iconHome()}</span> الرئيسية</a>
     <div class="divider" style="margin:6px 20px;"></div>
@@ -606,6 +641,7 @@ function renderDrawer(){
   `;
   const adminItems = `
     <a class="drawer-item ${state.route.name==='admin-sections'?'active':''}" onclick="nav('admin-sections')"><span class="ic">${iconGrid()}</span> إدارة الأقسام</a>
+    <a class="drawer-item ${['admin-important','admin-important-quick-add'].includes(state.route.name)?'active':''}" onclick="nav('admin-important')"><span class="ic">${iconCheckSquare()}</span> الأسئلة المهمة</a>
     <a class="drawer-item ${state.route.name==='admin-settings'?'active':''}" onclick="nav('admin-settings')"><span class="ic">${iconSettings()}</span> الإعدادات</a>
     <a class="drawer-item ${state.route.name==='home'?'active':''}" onclick="nav('home')"><span class="ic">${iconHome()}</span> الرئيسية</a>
   `;
@@ -622,7 +658,7 @@ function renderDrawer(){
 function toggleDrawer(v){ state.drawerOpen=v; render(); }
 async function doLogout(){
   await sessionClear();
-  state = {userNumber:null,isAdmin:false,sections:[],sectionsLoaded:false,drawerOpen:false,route:{name:'login',params:{}},history:[],quiz:null,cache:{}};
+  state = {userNumber:null,isAdmin:false,sections:[],sectionsLoaded:false,importantQuestions:[],importantLoaded:false,drawerOpen:false,route:{name:'login',params:{}},history:[],quiz:null,cache:{}};
   render();
 }
 
@@ -646,6 +682,7 @@ function iconBack(){ return svgIcon('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5
 function iconDownload(){ return svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'); }
 function iconRefresh(){ return svgIcon('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>'); }
 function iconSettings(){ return svgIcon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'); }
+function iconCheckSquare(){ return svgIcon('<rect x="3" y="3" width="18" height="18" rx="3"/><polyline points="8 12 11 15 16 9"/>'); }
 function iconCopy(){ return svgIcon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'); }
 
 /* ================= LOGIN ================= */
@@ -717,20 +754,96 @@ async function renderHome(){
 }
 
 /* ================= SECTIONS (user) ================= */
-async function renderSections(){
+let userSectionsSelectMode = false;
+let userSelectedSectionIds = new Set();
+async function renderSections(preserveSelection){
+  if(!preserveSelection){ userSectionsSelectMode = false; userSelectedSectionIds = new Set(); }
   const cont = document.getElementById('page-content');
   cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
   const sections = await loadSections();
   if(sections.length===0){ cont.innerHTML = emptyState('لا توجد أقسام بعد','سيقوم المشرف بإضافتها قريباً'); return; }
+  const n = userSelectedSectionIds.size;
   cont.innerHTML = `
     <div class="section-title">الأقسام</div>
-    <button class="btn btn-outline" style="margin-bottom:16px;" onclick="startQuiz('all')">${iconGrid()} اختبر جميع الأقسام</button>
-    ${sections.map(s=>`
-      <div class="list-item" onclick="startQuiz('${s.id}')">
-        <div><div class="title">${s.name}</div></div>
-        <div>${iconChev()}</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      ${userSectionsSelectMode
+        ? `<button class="btn btn-outline" style="flex:1;" ${n<2?'disabled':''} onclick="startSelectedSectionsQuiz()">${iconGrid()} اختبر الأقسام المحددة${n?` (${n})`:''}</button>`
+        : `<button class="btn btn-outline" style="flex:1;" onclick="startQuiz('all')">${iconGrid()} اختبر جميع الأقسام</button>`}
+      <button class="btn ${userSectionsSelectMode?'btn-primary':'btn-outline'}" style="width:44px;flex:none;padding:0;" title="تحديد أقسام" onclick="toggleUserSectionsSelectMode()">${iconCheckSquare()}</button>
+    </div>
+    ${userSectionsSelectMode? `<div class="sub" style="margin-bottom:10px;">اختر قسمين على الأقل لتتمكن من اختبارها معاً</div>`:''}
+    ${sections.map(s=>{
+      const picked = userSelectedSectionIds.has(s.id);
+      return userSectionsSelectMode
+        ? `<div class="list-item selectable ${picked?'picked':''}" onclick="toggleUserSectionPick('${s.id}')">
+            <div style="display:flex;align-items:center;gap:12px;"><div class="pick-box">${picked?'✓':''}</div><div class="title">${escapeHtml(s.name)}</div></div>
+          </div>`
+        : `<div class="list-item" onclick="startQuiz('${s.id}')">
+            <div><div class="title">${escapeHtml(s.name)}</div></div>
+            <div>${iconChev()}</div>
+          </div>`;
+    }).join('')}
+  `;
+}
+function toggleUserSectionsSelectMode(){
+  userSectionsSelectMode = !userSectionsSelectMode;
+  userSelectedSectionIds = new Set();
+  renderSections(true);
+}
+function toggleUserSectionPick(id){
+  if(userSelectedSectionIds.has(id)) userSelectedSectionIds.delete(id); else userSelectedSectionIds.add(id);
+  renderSections(true);
+}
+function startSelectedSectionsQuiz(){
+  if(userSelectedSectionIds.size<2){ toast('اختر قسمين على الأقل'); return; }
+  startQuiz(Array.from(userSelectedSectionIds));
+}
+
+/* ================= IMPORTANT QUESTIONS (user) ================= */
+async function renderImportant(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const list = await loadImportantQuestions();
+  if(list.length===0){ cont.innerHTML = emptyState('لا توجد أسئلة مهمة بعد','سيقوم المشرف بإضافتها قريباً'); return; }
+  cont.innerHTML = `
+    <div class="section-title">الأسئلة المهمة</div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="openImportantQuizOrderChoice()">${iconGrid()} اختبار الأسئلة المهمة</button>
+    <div class="sub" style="margin-bottom:10px;">عدد الأسئلة: ${list.length}</div>
+    ${list.map((q,i)=>`
+      <div class="list-item" style="cursor:default;">
+        <div style="flex:1;">
+          <span class="chip">${QTYPES[q.type].label}</span>
+          <div class="title" style="margin-top:6px;">${escapeHtml(questionSummaryText(q))||('سؤال '+(i+1))}</div>
+        </div>
       </div>`).join('')}
   `;
+}
+function openImportantQuizOrderChoice(){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">ترتيب أسئلة الاختبار</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <p class="sub">كيف تريد ترتيب الأسئلة؟</p>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="closeModal();startImportantQuiz(false);">بالترتيب</button>
+      <button class="btn btn-primary" onclick="closeModal();startImportantQuiz(true);">عشوائي</button>
+    </div>
+  `, true);
+}
+function shuffleArray(arr){
+  for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
+async function startImportantQuiz(shuffle){
+  const cont = document.getElementById('app');
+  cont.innerHTML = `<div class="loader">جارِ تجهيز الاختبار...</div>`;
+  try{
+    let qs = await loadImportantQuestions(true);
+    if(qs.length===0){ toast('لا توجد أسئلة'); nav('important'); return; }
+    if(shuffle) qs = shuffleArray(qs.slice());
+    beginQuizSession(qs, 'الأسئلة المهمة', 'important', false);
+  }catch(e){
+    console.error(e);
+    showRenderError(e);
+  }
 }
 
 /* ================= WRONG QUESTIONS ================= */
@@ -862,12 +975,19 @@ async function startQuiz(sectionId){
     if(sectionId==='all'){
       qs = await getAllQuestions();
       secName='كل الأقسام';
+    }else if(Array.isArray(sectionId)){
+      await loadSections();
+      const idsSet = new Set(sectionId);
+      const pickedSections = state.sections.filter(s=>idsSet.has(s.id));
+      const lists = await Promise.all(sectionId.map(id=>getQuestions(id)));
+      qs = sortAllBySectionThenOrder(lists.flat(), pickedSections);
+      secName = `أقسام محددة (${pickedSections.length})`;
     }else{
       qs = await getQuestions(sectionId);
       const sec = state.sections.find(s=>s.id===sectionId);
       secName = sec?sec.name:'';
     }
-    if(qs.length===0){ toast('لا توجد أسئلة في هذا القسم بعد'); nav('sections'); return; }
+    if(qs.length===0){ toast('لا توجد أسئلة في هذا الاختيار بعد'); nav('sections'); return; }
     beginQuizSession(qs, secName, sectionId);
   }catch(e){
     console.error(e);
@@ -882,7 +1002,7 @@ async function beginQuizSession(questions, sectionName, sectionId, isOfflineQuiz
     isOfflineQuiz: !!isOfflineQuiz,
     instantFeedback: !!appSettings.instantFeedback,
     questions, index:0,
-    answers: questions.map(q=>({questionId:q.id, sectionId:q.sectionId, type:q.type, selectedIndex:null, saved:false, reviewed:false, timeSpentSeconds:0})),
+    answers: questions.map(q=>({questionId:q.id, sectionId:q.sectionId||null, type:q.type, selectedIndex:null, saved:false, reviewed:false, timeSpentSeconds:0})),
     startedAt: Date.now(),
     qStartedAt: Date.now(),
     savedFlags:{}, reviewFlags:{},
@@ -1134,8 +1254,13 @@ let questionCache = {};
 async function getQuestionById(id){
   if(questionCache[id]) return questionCache[id];
   const d = await db.collection('questions').doc(id).get();
-  if(!d.exists) return null;
-  const q = {id:d.id,...d.data()};
+  let q;
+  if(d.exists){ q = {id:d.id,...d.data()}; }
+  else{
+    const d2 = await db.collection('important_questions').doc(id).get();
+    if(!d2.exists) return null;
+    q = {id:d2.id,...d2.data()};
+  }
   questionCache[id]=q;
   return q;
 }
@@ -1144,24 +1269,91 @@ function iconEye(){ return svgIcon('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-1
 function emptyState(title,sub){ return `<div class="empty"><div class="ic">${iconGrid()}</div><div style="font-weight:700;color:var(--text-dim);margin-bottom:6px;">${title}</div><div>${sub}</div></div>`; }
 
 /* ================= ADMIN: SECTIONS ================= */
-async function renderAdminSections(){
+let adminSectionsSelectMode = false;
+let adminSelectedSectionIds = new Set();
+async function renderAdminSections(preserveSelection){
+  if(!preserveSelection){ adminSectionsSelectMode = false; adminSelectedSectionIds = new Set(); }
   const cont = document.getElementById('page-content');
   cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
   const sections = await loadSections(true);
+  const n = adminSelectedSectionIds.size;
   cont.innerHTML = `
     <div class="section-title">إدارة الأقسام</div>
-    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="openAddSectionChoice()">${iconPlus()} إضافة قسم</button>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      ${adminSectionsSelectMode
+        ? `<button class="btn btn-outline" style="flex:1;" ${n<1?'disabled':''} onclick="bulkCopySelectedSections()">${iconCopy()} نسخ نصوص المحددة${n?` (${n})`:''}</button>
+           <button class="btn btn-danger" style="flex:1;" ${n<1?'disabled':''} onclick="confirmBulkDeleteSections()">${iconTrash()} حذف المحددة${n?` (${n})`:''}</button>`
+        : `<button class="btn btn-primary" style="flex:1;" onclick="openAddSectionChoice()">${iconPlus()} إضافة قسم</button>`}
+      <button class="btn ${adminSectionsSelectMode?'btn-primary':'btn-outline'}" style="width:44px;flex:none;padding:0;" title="تحديد أقسام" onclick="toggleAdminSectionsSelectMode()">${iconCheckSquare()}</button>
+    </div>
     ${sections.length===0? emptyState('لا توجد أقسام بعد','ابدأ بإضافة أول قسم'):''}
-    ${sections.map((s,idx)=>`
-      <div class="list-item" style="cursor:default;">
+    ${sections.map((s,idx)=>{
+      const picked = adminSelectedSectionIds.has(s.id);
+      if(adminSectionsSelectMode){
+        return `<div class="list-item selectable ${picked?'picked':''}" onclick="toggleAdminSectionPick('${s.id}')">
+          <div style="display:flex;align-items:center;gap:12px;"><div class="pick-box">${picked?'✓':''}</div><div class="title">${escapeHtml(s.name)}</div></div>
+        </div>`;
+      }
+      return `<div class="list-item" style="cursor:default;">
         <div style="flex:1;cursor:pointer;" onclick="nav('admin-section-edit',{id:'${s.id}'})"><div class="title">${escapeHtml(s.name)}</div></div>
         <div style="display:flex;gap:8px;">
           <div class="icon-action" onclick="event.stopPropagation();copySectionAsText('${s.id}', ${idx})">${iconCopy()}</div>
           <div class="icon-action" onclick="event.stopPropagation();openEditSectionModal('${s.id}','${escapeHtml(s.name).replace(/'/g,"\\'")}')">${iconEdit()}</div>
           <div class="icon-action" onclick="event.stopPropagation();confirmDeleteSection('${s.id}')">${iconTrash()}</div>
         </div>
-      </div>`).join('')}
+      </div>`;
+    }).join('')}
   `;
+}
+function toggleAdminSectionsSelectMode(){
+  adminSectionsSelectMode = !adminSectionsSelectMode;
+  adminSelectedSectionIds = new Set();
+  renderAdminSections(true);
+}
+function toggleAdminSectionPick(id){
+  if(adminSelectedSectionIds.has(id)) adminSelectedSectionIds.delete(id); else adminSelectedSectionIds.add(id);
+  renderAdminSections(true);
+}
+async function bulkCopySelectedSections(){
+  if(adminSelectedSectionIds.size<1) return;
+  try{
+    toast('جارِ تجهيز النص...');
+    const ids = state.sections.filter(s=>adminSelectedSectionIds.has(s.id)).map(s=>s.id);
+    let text = '';
+    for(let i=0;i<ids.length;i++){
+      const id = ids[i];
+      const idx = state.sections.findIndex(s=>s.id===id);
+      const sec = state.sections[idx];
+      const number = (sec.number!==undefined && sec.number!==null && sec.number!=='') ? sec.number : (idx+1);
+      const questions = await getQuestions(id);
+      if(i>0) text += '\n\n';
+      text += `عنوان ورقم القسم: ${number} ${sec.name}\n`;
+      questions.forEach(q=>{ text += `\n` + questionToQuickAddBlock(q); });
+    }
+    showCopyTextModal(`نسخ ${ids.length} أقسام`, text);
+  }catch(e){
+    console.error(e);
+    toast('تعذّر تجهيز النص');
+  }
+}
+function confirmBulkDeleteSections(){
+  const n = adminSelectedSectionIds.size;
+  if(n<1) return;
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">تأكيد الحذف</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <p class="sub">سيتم حذف ${n} أقسام وكل أسئلتها نهائياً. متابعة؟</p>
+    <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="doBulkDeleteSections()">حذف</button></div>
+  `, true);
+}
+async function doBulkDeleteSections(){
+  const ids = Array.from(adminSelectedSectionIds);
+  closeModal();
+  toast('جارِ الحذف...');
+  for(const id of ids){ await deleteSection(id); }
+  adminSectionsSelectMode = false;
+  adminSelectedSectionIds = new Set();
+  toast('تم حذف الأقسام المحددة');
+  renderAdminSections();
 }
 function questionToQuickAddBlock(q){
   let out = `نوع السؤال: ${QTYPES[q.type].label}\n`;
@@ -1300,7 +1492,10 @@ function confirmDeleteQuestion(qid,sectionId){
     <div class="btn-row"><button class="btn" onclick="closeModal()">إلغاء</button><button class="btn btn-danger" onclick="doDeleteQuestion('${qid}','${sectionId}')">حذف</button></div>
   `, true);
 }
-async function doDeleteQuestion(qid,sectionId){ await deleteQuestion(qid); closeModal(); toast('تم الحذف'); nav('admin-section-edit',{id:sectionId}); }
+async function doDeleteQuestion(qid,sectionId){
+  if(sectionId==='important'){ await deleteImportantQuestion(qid); closeModal(); toast('تم الحذف'); nav('admin-important'); return; }
+  await deleteQuestion(qid); closeModal(); toast('تم الحذف'); nav('admin-section-edit',{id:sectionId});
+}
 
 /* ================= ADMIN: ADD/EDIT QUESTION (manual) ================= */
 let questionDraftType = null;
@@ -1309,7 +1504,7 @@ async function renderAdminQuestionAdd(sectionId, questionId){
   let existing = null;
   let suggestedOrder = '';
   if(questionId){ existing = await getQuestionById(questionId); questionDraftType = existing?.type; }
-  else{ try{ const list = await getQuestions(sectionId); suggestedOrder = list.length+1; }catch(e){} }
+  else{ try{ const list = sectionId==='important' ? await loadImportantQuestions(true) : await getQuestions(sectionId); suggestedOrder = list.length+1; }catch(e){} }
   cont.innerHTML = `
     <div class="section-title">${existing?'تعديل السؤال':'إضافة سؤال'}</div>
     <div class="field">
@@ -1320,7 +1515,7 @@ async function renderAdminQuestionAdd(sectionId, questionId){
     </div>
     <div id="qFormFields">${questionDraftType?questionFormFields(questionDraftType, existing, suggestedOrder):'<div class="sub">اختر نوع السؤال أولاً</div>'}</div>
     <button class="btn btn-primary" style="margin-top:10px;" onclick="saveManualQuestion('${sectionId}','${questionId||''}')">حفظ السؤال</button>
-    <button class="btn btn-outline" style="margin-top:10px;" onclick="nav('admin-section-edit',{id:'${sectionId}'})">إلغاء</button>
+    <button class="btn btn-outline" style="margin-top:10px;" onclick="${sectionId==='important'?`nav('admin-important')`:`nav('admin-section-edit',{id:'${sectionId}'})`}">إلغاء</button>
   `;
 }
 function selectQType(t, sectionId, questionId){
@@ -1414,6 +1609,13 @@ async function saveManualQuestion(sectionId, questionId){
     data.word2 = document.getElementById('f_word2').value.trim();
     data.answers = [0,1,2,3].map(i=>({w1:document.getElementById(`f_ans_${i}_w1`).value.trim(), w2:document.getElementById(`f_ans_${i}_w2`).value.trim()}));
   }
+  if(sectionId==='important'){
+    if(questionId){ await updateImportantQuestion(questionId, type, data); toast('تم التحديث'); }
+    else{ await addImportantQuestion(type, data); toast('تمت الإضافة'); }
+    questionDraftType = null;
+    nav('admin-important');
+    return;
+  }
   if(questionId){ await updateQuestion(questionId, type, data); toast('تم التحديث'); }
   else{ await addQuestion(sectionId, type, data); toast('تمت الإضافة'); }
   questionDraftType = null;
@@ -1497,63 +1699,73 @@ function parseQuickAdd(rawText){
   const blocks = norm.split(/(?=نوع السؤال:)/g).slice(1);
   if(blocks.length===0) throw new Error('لم أجد أي سؤال (تأكد من كتابة "نوع السؤال:" قبل كل سؤال)');
 
-  const ALL_LABELS = ['رقم السؤال:','المفردة الأولى:','المفردة الثانية:','النص:','السؤال:','الجملة:','الإجابات:'];
-
-  const questions = blocks.map((block, bi)=>{
-    const n = bi+1;
-    const typeLabel = extractBetween(block, 'نوع السؤال:', ['رقم السؤال:','الإجابات:']);
-    const typeKey = Object.keys(QTYPES).find(k=>QTYPES[k].label===typeLabel);
-    if(!typeKey) throw new Error(`نوع السؤال غير معروف في السؤال رقم ${n}: "${typeLabel}"`);
-
-    const qNumMatch = block.match(/رقم السؤال:\s*([0-9٠-٩]+)/);
-    if(!qNumMatch) throw new Error(`لم أجد "رقم السؤال:" في السؤال رقم ${n} (بالترتيب داخل النص)`);
-    const qOrder = parseInt(toWesternDigits(qNumMatch[1]),10);
-
-    const answersIdx = block.indexOf('الإجابات:');
-    if(answersIdx===-1) throw new Error(`لم أجد "الإجابات:" في السؤال رقم ${n}`);
-    const header = block.slice(0, answersIdx);
-    const answersRaw = block.slice(answersIdx + 'الإجابات:'.length).trim();
-    if(!answersRaw) throw new Error(`قائمة الإجابات فارغة في السؤال رقم ${n}`);
-
-    let word1,word2,sentence,passage,question;
-    if(typeKey==='analogy'){
-      word1 = extractBetween(header,'المفردة الأولى:',['المفردة الثانية:']) || '';
-      word2 = extractBetween(header,'المفردة الثانية:',[]) || '';
-    }else if(typeKey==='reading'){
-      const passageStart = header.indexOf('النص:');
-      const passageFrom = passageStart===-1? -1 : passageStart + 'النص:'.length;
-      const qLabelIdx = passageFrom===-1? -1 : header.indexOf('السؤال:', passageFrom);
-      passage = passageFrom===-1? '' : (qLabelIdx===-1? header.slice(passageFrom).trim() : header.slice(passageFrom, qLabelIdx).trim());
-      question = qLabelIdx===-1? '' : header.slice(qLabelIdx + 'السؤال:'.length).trim();
-    }else if(typeKey==='contextual_error' || typeKey==='sentence_completion'){
-      sentence = extractBetween(header,'الجملة:',[]) || '';
-    }
-
-    let answers, correctIndex=-1;
-    if(typeKey==='analogy'){
-      const chunks = answersRaw.split(/(?=[1-4]\s*المفردة الأولى:)/g).map(c=>c.trim()).filter(Boolean);
-      if(chunks.length<1) throw new Error(`تعذّر تقسيم إجابات التناظر في السؤال رقم ${n}`);
-      answers = chunks.map((chunk,i)=>{
-        if(/---\s*هذه الإجابة الصحيحة/.test(chunk)) correctIndex=i;
-        const w1 = extractBetween(chunk,'المفردة الأولى:',['المفردة الثانية:']) || '';
-        let w2 = extractBetween(chunk,'المفردة الثانية:',[]) || '';
-        w2 = w2.replace(/---\s*هذه الإجابة الصحيحة.*$/,'').trim();
-        return { w1, w2 };
-      });
-    }else{
-      const chunks = splitNumberedAnswers(answersRaw);
-      if(!chunks || chunks.length<1) throw new Error(`تعذّر تقسيم الإجابات في السؤال رقم ${n} (تأكد من ترقيمها 1 2 3 4)`);
-      answers = chunks.map((chunk,i)=>{
-        if(/---\s*هذه الإجابة الصحيحة/.test(chunk)) correctIndex=i;
-        return chunk.replace(/---\s*هذه الإجابة الصحيحة.*$/,'').trim();
-      });
-    }
-    if(correctIndex===-1) throw new Error(`لم أجد إجابة معلّمة بـ "--- هذه الإجابة الصحيحة" في السؤال رقم ${n}`);
-
-    return { type:typeKey, order:qOrder, answers, correctIndex, word1, word2, sentence, passage, question };
-  });
+  const questions = blocks.map((block, bi)=>parseQuestionBlock(block, bi+1, true));
 
   return { secNumber, secTitle, questions };
+}
+/* يحلل كتلة سؤال واحدة (تبدأ بـ "نوع السؤال:"). requireOrder=true يفرض وجود "رقم السؤال:" (تُستخدم مع الأقسام)،
+   requireOrder=false يتجاهله (تُستخدم مع الأسئلة المهمة التي لا رقم لها) */
+function parseQuestionBlock(block, n, requireOrder){
+  const typeLabel = extractBetween(block, 'نوع السؤال:', ['رقم السؤال:','المفردة الأولى:','النص:','الجملة:','الإجابات:']);
+  const typeKey = Object.keys(QTYPES).find(k=>QTYPES[k].label===typeLabel);
+  if(!typeKey) throw new Error(`نوع السؤال غير معروف في السؤال رقم ${n}: "${typeLabel}"`);
+
+  let qOrder;
+  if(requireOrder){
+    const qNumMatch = block.match(/رقم السؤال:\s*([0-9٠-٩]+)/);
+    if(!qNumMatch) throw new Error(`لم أجد "رقم السؤال:" في السؤال رقم ${n} (بالترتيب داخل النص)`);
+    qOrder = parseInt(toWesternDigits(qNumMatch[1]),10);
+  }
+
+  const answersIdx = block.indexOf('الإجابات:');
+  if(answersIdx===-1) throw new Error(`لم أجد "الإجابات:" في السؤال رقم ${n}`);
+  const header = block.slice(0, answersIdx);
+  const answersRaw = block.slice(answersIdx + 'الإجابات:'.length).trim();
+  if(!answersRaw) throw new Error(`قائمة الإجابات فارغة في السؤال رقم ${n}`);
+
+  let word1,word2,sentence,passage,question;
+  if(typeKey==='analogy'){
+    word1 = extractBetween(header,'المفردة الأولى:',['المفردة الثانية:']) || '';
+    word2 = extractBetween(header,'المفردة الثانية:',[]) || '';
+  }else if(typeKey==='reading'){
+    const passageStart = header.indexOf('النص:');
+    const passageFrom = passageStart===-1? -1 : passageStart + 'النص:'.length;
+    const qLabelIdx = passageFrom===-1? -1 : header.indexOf('السؤال:', passageFrom);
+    passage = passageFrom===-1? '' : (qLabelIdx===-1? header.slice(passageFrom).trim() : header.slice(passageFrom, qLabelIdx).trim());
+    question = qLabelIdx===-1? '' : header.slice(qLabelIdx + 'السؤال:'.length).trim();
+  }else if(typeKey==='contextual_error' || typeKey==='sentence_completion'){
+    sentence = extractBetween(header,'الجملة:',[]) || '';
+  }
+
+  let answers, correctIndex=-1;
+  if(typeKey==='analogy'){
+    const chunks = answersRaw.split(/(?=[1-4]\s*المفردة الأولى:)/g).map(c=>c.trim()).filter(Boolean);
+    if(chunks.length<1) throw new Error(`تعذّر تقسيم إجابات التناظر في السؤال رقم ${n}`);
+    answers = chunks.map((chunk,i)=>{
+      if(/---\s*هذه الإجابة الصحيحة/.test(chunk)) correctIndex=i;
+      const w1 = extractBetween(chunk,'المفردة الأولى:',['المفردة الثانية:']) || '';
+      let w2 = extractBetween(chunk,'المفردة الثانية:',[]) || '';
+      w2 = w2.replace(/---\s*هذه الإجابة الصحيحة.*$/,'').trim();
+      return { w1, w2 };
+    });
+  }else{
+    const chunks = splitNumberedAnswers(answersRaw);
+    if(!chunks || chunks.length<1) throw new Error(`تعذّر تقسيم الإجابات في السؤال رقم ${n} (تأكد من ترقيمها 1 2 3 4)`);
+    answers = chunks.map((chunk,i)=>{
+      if(/---\s*هذه الإجابة الصحيحة/.test(chunk)) correctIndex=i;
+      return chunk.replace(/---\s*هذه الإجابة الصحيحة.*$/,'').trim();
+    });
+  }
+  if(correctIndex===-1) throw new Error(`لم أجد إجابة معلّمة بـ "--- هذه الإجابة الصحيحة" في السؤال رقم ${n}`);
+
+  return { type:typeKey, order:qOrder, answers, correctIndex, word1, word2, sentence, passage, question };
+}
+/* أسئلة مهمة: يقبل سؤالاً أو أكثر بدون عنوان قسم وبدون "رقم السؤال:" */
+function parseImportantQuickAdd(rawText){
+  const norm = rawText.replace(/\s+/g,' ').trim();
+  const blocks = norm.split(/(?=نوع السؤال:)/g).map(b=>b.trim()).filter(b=>b.startsWith('نوع السؤال:'));
+  if(blocks.length===0) throw new Error('لم أجد أي سؤال (تأكد من كتابة "نوع السؤال:" قبل كل سؤال)');
+  return blocks.map((block,bi)=>parseQuestionBlock(block, bi+1, false));
 }
 function previewQuickAdd(){
   const text = document.getElementById('quickAddText').value;
@@ -1767,6 +1979,116 @@ async function saveQuickAdd(){
   }
 }
 
+/* ================= ADMIN: IMPORTANT QUESTIONS ================= */
+async function renderAdminImportant(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `<div class="loader">جارِ التحميل...</div>`;
+  const questions = await loadImportantQuestions(true);
+  cont.innerHTML = `
+    <div class="section-title">الأسئلة المهمة</div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="openAddImportantChoice()">${iconPlus()} إضافة سؤال</button>
+    <div class="sub" style="margin-bottom:10px;">عدد الأسئلة: ${questions.length}</div>
+    ${questions.length===0? emptyState('لا توجد أسئلة مهمة بعد','ابدأ بإضافة أول سؤال'):''}
+    ${questions.map((q,i)=>`
+      <div class="list-item" style="cursor:default;">
+        <div style="flex:1;">
+          <span class="type-badge">${QTYPES[q.type].label}</span>
+          <div class="title">${escapeHtml(questionSummaryText(q))||('سؤال '+(i+1))}</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div class="icon-action" onclick="nav('admin-question-add',{sectionId:'important',questionId:'${q.id}'})">${iconEdit()}</div>
+          <div class="icon-action" onclick="confirmDeleteQuestion('${q.id}','important')">${iconTrash()}</div>
+        </div>
+      </div>`).join('')}
+    <button class="btn btn-outline" style="margin-top:16px;" onclick="nav('home')">رجوع للرئيسية</button>
+  `;
+}
+function openAddImportantChoice(){
+  openModal(`
+    <div class="modal-head"><h3 style="margin:0;">إضافة سؤال مهم</h3><div class="modal-close" onclick="closeModal()">${iconClose()}</div></div>
+    <button class="btn btn-primary" style="margin-bottom:10px;" onclick="closeModal();nav('admin-question-add',{sectionId:'important'});">إضافة يدوية</button>
+    <button class="btn btn-outline" onclick="closeModal();nav('admin-important-quick-add');">إضافة سريعة</button>
+  `, true);
+}
+function renderAdminImportantQuickAdd(){
+  const cont = document.getElementById('page-content');
+  cont.innerHTML = `
+    <div class="section-title">إضافة سريعة (الأسئلة المهمة)</div>
+    <div class="small-note card">
+      اكتب سؤالاً واحداً أو أكثر بنفس تنسيق الإضافة السريعة، لكن بدون سطر "عنوان ورقم القسم:" وبدون سطر "رقم السؤال:". كل سؤال يبدأ بسطر "نوع السؤال:". مثال:
+      <pre style="white-space:pre-wrap;font-size:11.5px;color:var(--text-faint);margin-top:8px;">نوع السؤال: التناظر اللفظي
+المفردة الأولى: أبحاث
+المفردة الثانية: تطور
+الإجابات:
+1 المفردة الأولى: عمل المفردة الثانية: شهادة
+2 المفردة الأولى: تجارة المفردة الثانية: استثمار
+3 المفردة الأولى: شيبة المفردة الثانية: ضعف --- هذه الإجابة الصحيحة
+4 المفردة الأولى: فوز المفردة الثانية: جهد</pre>
+    </div>
+    <textarea id="importantQuickAddText" placeholder="الصق النص هنا..." style="min-height:260px;"></textarea>
+    <div class="btn-row">
+      <button class="btn" onclick="previewImportantQuickAdd()">معاينة</button>
+      <button class="btn btn-primary" id="importantQuickSaveBtn" style="display:none;" onclick="saveImportantQuickAdd()">حفظ الأسئلة</button>
+    </div>
+    <div id="importantQuickPreview"></div>
+    <button class="btn btn-outline" style="margin-top:16px;" onclick="nav('admin-important')">رجوع</button>
+  `;
+}
+let importantQuickParsed = null;
+function previewImportantQuickAdd(){
+  const text = document.getElementById('importantQuickAddText').value;
+  const box = document.getElementById('importantQuickPreview');
+  const saveBtn = document.getElementById('importantQuickSaveBtn');
+  if(!text.trim()){ box.innerHTML=''; toast('الصق النص أولاً'); return; }
+  try{
+    const list = parseImportantQuickAdd(text);
+    importantQuickParsed = list;
+    box.innerHTML = `
+      <div class="card" style="margin-top:14px;">
+        <b>عدد الأسئلة المستخرجة: ${list.length}</b>
+        ${list.map((q,i)=>`
+          <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+            <span class="type-badge">سؤال ${i+1} · ${QTYPES[q.type].label}</span>
+            ${q.answers.length<2?`<span class="chip" style="margin-right:6px;color:var(--accent);">⚠ إجابة واحدة فقط</span>`:''}
+            <div style="font-size:13.5px;margin-top:4px;">${escapeHtml(questionSummaryText(q))||'(بدون نص ظاهر)'}</div>
+            <div class="sub" style="color:var(--success);">الصحيحة: ${escapeHtml(parsedCorrectText(q))}</div>
+          </div>`).join('')}
+      </div>`;
+    saveBtn.textContent = `حفظ ${list.length} سؤال`;
+    saveBtn.style.display='flex';
+  }catch(e){
+    importantQuickParsed=null;
+    box.innerHTML = `<div class="card" style="border-color:var(--danger);color:var(--danger);margin-top:14px;">خطأ في التنسيق: ${escapeHtml(e.message)}</div>`;
+    saveBtn.style.display='none';
+  }
+}
+async function saveImportantQuickAdd(){
+  if(!importantQuickParsed || importantQuickParsed.length===0) return;
+  const btn = document.getElementById('importantQuickSaveBtn');
+  btn.disabled = true; btn.textContent = 'جارِ الحفظ...';
+  try{
+    const existing = await loadImportantQuestions(true);
+    const base = existing.length;
+    let batch = db.batch(); let ops = 0;
+    importantQuickParsed.forEach((q,i)=>{
+      const ref = db.collection('important_questions').doc();
+      batch.set(ref, {type:q.type, ...buildQuestionData({...q, order: base+i}), createdAt:FieldValue.serverTimestamp()});
+      ops++;
+      if(ops>=400){ /* batches over 400 ops are unlikely here, kept as a safety net */ }
+    });
+    await batch.commit();
+    state.importantLoaded = false;
+    toast(`تم حفظ ${importantQuickParsed.length} سؤال بنجاح`);
+    importantQuickParsed = null;
+    nav('admin-important');
+  }catch(e){
+    console.error(e);
+    btn.disabled = false;
+    btn.textContent = 'حفظ الأسئلة';
+    toast('حدث خطأ أثناء الحفظ');
+  }
+}
+
 /* ================= ADMIN: SETTINGS ================= */
 async function renderAdminSettings(){
   const cont = document.getElementById('page-content');
@@ -1817,6 +2139,9 @@ async function render(){
     else if(r.name==='admin-quick-add') renderAdminQuickAdd();
     else if(r.name==='admin-multi-add') renderAdminMultiAdd();
     else if(r.name==='admin-settings') await renderAdminSettings();
+    else if(r.name==='admin-important') await renderAdminImportant();
+    else if(r.name==='admin-important-quick-add') renderAdminImportantQuickAdd();
+    else if(r.name==='important') await renderImportant();
     else if(r.name==='quiz') renderQuizScreen();
     else if(r.name==='offline-sections') renderOfflineSections();
     else if(r.name==='offline-section-view') renderOfflineSectionView(r.params.id, r.params.name);
