@@ -237,6 +237,13 @@ table.simple tr:last-child td{ border-bottom:none; }
   padding:12px 14px; border-radius:10px; font-size:13.5px; margin-bottom:16px;
 }
 
+/* ---- merged features ---- */
+.answer-check{display:inline-flex;align-items:center;margin:0;cursor:pointer;position:relative;}
+.answer-check input{position:absolute;opacity:0;pointer-events:none;}
+.answer-check .check-box{width:22px;height:22px;border:1.5px solid var(--text-faint);border-radius:6px;display:flex;align-items:center;justify-content:center;color:transparent;font-weight:800;font-size:14px;transition:.15s;}
+.answer-check input:checked + .check-box{background:var(--green);border-color:var(--green);color:#0c2016;}
+.report-button{color:var(--red)!important;border-color:rgba(226,99,122,.45)!important;}
+.report-card{border-color:rgba(226,99,122,.45);}
 /* ---- toast ---- */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface-3);border:1px solid var(--amber);
   color:var(--text);padding:12px 20px;border-radius:12px;font-size:13.5px;z-index:70;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;text-align:center;max-width:90vw;}
@@ -730,6 +737,41 @@ const Data = {
     return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data(), createdAt:d.data().updatedAt})), 'desc');
   },
 
+  // reports
+  async getReports(status){
+    const snap = await getDocs(collection(db,'reports'));
+    return snap.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(r=>!status || r.status===status)
+      .sort((a,b)=>tsToDate(b.createdAt)-tsToDate(a.createdAt));
+  },
+  async getReport(id){
+    const snap=await getDoc(doc(db,'reports',id));
+    return snap.exists()?{id:snap.id,...snap.data()}:null;
+  },
+  async addReport(data){
+    const ref=await addDoc(collection(db,'reports'),{...data,status:'open',createdAt:serverTimestamp()});
+    return ref.id;
+  },
+  async updateReport(id,data){ await updateDoc(doc(db,'reports',id),data); },
+  async finishReport(report,admin){
+    const batch=writeBatch(db);
+    batch.set(doc(collection(db,'report_history')),{...report,status:'closed',closedAt:serverTimestamp(),closedBy:admin});
+    batch.delete(doc(db,'reports',report.id));
+    await batch.commit();
+  },
+  async getReportHistory(){
+    const snap=await getDocs(collection(db,'report_history'));
+    return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>tsToDate(b.closedAt)-tsToDate(a.closedAt));
+  },
+  // global important questions
+  async getImportantQuestions(){
+    const snap=await getDocs(collection(db,'important_questions'));
+    return sortByOrder(snap.docs.map(d=>({id:d.id,...d.data()})));
+  },
+  async addImportantQuestion(q){ return (await addDoc(collection(db,'important_questions'),{...q,createdAt:serverTimestamp()})).id; },
+  async updateImportantQuestion(id,q){ await updateDoc(doc(db,'important_questions',id),q); },
+  async deleteImportantQuestion(id){ await deleteDoc(doc(db,'important_questions',id)); },
+
   // settings
   async getSettings(){
     try{
@@ -752,6 +794,7 @@ const state = {
   lastAttempt: null,// cached just-finished attempt for result screen
   cache: {},        // misc per-render cache
   settings: { liveGrading:false }, // global app settings loaded from Firestore
+  viewMode: 'user', // admin users can switch between user and admin capabilities
 };
 
 const app = document.getElementById('app');
@@ -763,26 +806,33 @@ function closeModal(){ state.modal = null; render(); }
 
 /* ============ SHARED UI ============ */
 function menuItemsFor(user){
-  if(user.isAdmin){
+  if(user.isAdmin && state.viewMode==='admin'){
     return [
       { icon: ICON.section, label:'Manage Sections', hash:'#/admin/sections' },
-      { icon: ICON.users,   label:'Manage Users',    hash:'#/admin/users' },
+      { icon: ICON.wrong, label:'Reports', hash:'#/admin/reports' },
+      { icon: ICON.history, label:'Report History', hash:'#/admin/report-history' },
+      { icon: ICON.users, label:'Manage Users', hash:'#/admin/users' },
+      { icon: ICON.settings, label:'Settings', hash:'#/admin/settings' },
     ];
   }
   return [
-    { icon: ICON.wrong,   label:'Wrong Questions',  hash:'#/user/wrong' },
-    { icon: ICON.section, label:'Sections',          hash:'#/user/sections' },
-    { icon: ICON.saved,   label:'Saved Questions',   hash:'#/user/saved' },
-    { icon: ICON.history, label:'Test History',      hash:'#/user/history' },
+    { icon: ICON.wrong, label:'Wrong Questions', hash:'#/user/wrong' },
+    { icon: ICON.section, label:'Sections', hash:'#/user/sections' },
+    { icon: ICON.saved, label:'Saved Questions', hash:'#/user/saved' },
+    { icon: ICON.check, label:'Important Questions', hash:'#/user/important' },
+    { icon: ICON.history, label:'Test History', hash:'#/user/history' },
   ];
 }
 
 function renderTopbar(){
+  const modeButton = state.user && state.user.isAdmin
+    ? `<button class="icon-btn" data-action="toggle-admin-mode" title="Switch between admin and user">${state.viewMode==='admin'?ICON.users:ICON.settings}</button>` : '';
   return `
   <div class="topbar">
     <div class="left">
       <button class="icon-btn" data-action="logout" title="Log out">${ICON.logout}</button>
       <button class="icon-btn" data-action="back" title="Back">${ICON.back}</button>
+      ${modeButton}
     </div>
     <div class="brand">
       <div class="step-mark"><i></i><i></i><i></i><i></i></div>
@@ -897,7 +947,7 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
           <div class="opt-drag-row drag-row" data-id="opt-${i}">
             <div class="drag-handle" title="Hold and drag to reorder">${ICON.drag}</div>
             <div class="field-inline">
-              <input type="radio" name="qm-correct" class="qm-radio" ${q.correctIndex===i?'checked':''} style="width:18px;height:18px;flex-shrink:0;" />
+              <label class="answer-check"><input type="radio" name="qm-correct" class="qm-radio" ${q.correctIndex===i?'checked':''} /><span class="check-box">✓</span></label>
               <input type="text" class="qm-opt-input" value="${esc(q.options[i]||'')}" placeholder="Option ${letterOf(i)}${i===3?' (optional)':''}" style="flex:1;" />
             </div>
           </div>`).join('')}
@@ -907,6 +957,14 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
         <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
         <button class="btn btn-primary" data-action="modal-question-submit" data-edit-id="${m.editId||''}">${m.editId?'Save':'Add'}</button>
       </div>`;
+  } else if(m.type==='report'){
+    const q=m.question||{};
+    body = `<h3>Report a question</h3>
+      <p class="muted" style="font-size:13px;line-height:1.6;">The question, your answer, and the system answer will be sent to the admin.</p>
+      <div class="card report-card" style="padding:12px;"><b>${esc(q.text)}</b>
+        <div class="muted" style="margin-top:8px;font-size:13px;">Your answer: ${m.selectedIndex===null?'Not answered':esc((q.options||[])[m.selectedIndex]||'—')}<br/>System answer: ${esc((q.options||[])[q.correctIndex]||'—')}</div></div>
+      <div class="field"><label>Details (optional)</label><textarea id="report-note" style="font-family:Inter,sans-serif;" placeholder="What seems wrong?"></textarea></div>
+      <div class="modal-actions"><button class="btn btn-ghost" data-action="modal-cancel">Cancel</button><button class="btn btn-danger" data-action="submit-report">Send Report</button></div>`;
   } else if(m.type==='reviewGate'){
     body = `
       <h3>Marked for Review</h3>
@@ -1019,6 +1077,7 @@ async function renderUserRoute(segs){
   if(section==='home' || !section) return await renderUserHome();
   if(section==='wrong') return await renderWrongQuestions();
   if(section==='saved') return await renderSavedQuestions();
+  if(section==='important') return await renderImportantQuestions();
   if(section==='history'){
     if(segs[1]) return await renderHistoryDetail(segs[1]);
     return await renderHistory();
@@ -1218,6 +1277,9 @@ async function buildQuizForScope(scope, sectionId, testId){
     const snap = await getDocs(questionsCol);
     questions = snap.docs.map(d=>({id:d.id,...d.data()}));
     testTitle = 'All Sections'; sectionName = 'All Sections';
+  } else if(scope==='important'){
+    questions = await Data.getImportantQuestions();
+    testTitle = 'Important Questions'; sectionName = 'Important';
   } else if(scope==='offlineTest'){
     const blob = getOfflineBlob();
     const sec = blob ? (blob.sections||[]).find(s=>s.id===sectionId) : null;
@@ -1260,6 +1322,7 @@ async function renderQuizRoute(segs){
   if(scope==='test'){ sectionId=a; testId=b; }
   else if(scope==='sectionAll'){ sectionId=a; }
   else if(scope==='custom'){ testId=a; }
+  else if(scope==='important'){ testId='important'; }
   else if(scope==='offlineTest'){ sectionId=a; testId=b; }
   else if(scope==='offlineSectionAll'){ sectionId=a; }
 
@@ -1320,6 +1383,8 @@ function renderQuizScreen(){
     <div class="quiz-actions">
       <button class="icon-btn ${isSaved?'active-save':''}" data-action="toggle-save" title="Save question">${isSaved?ICON.bookmarkFilled:ICON.bookmark}</button>
       <button class="icon-btn ${isReviewed?'active':''}" data-action="toggle-review" title="Mark for review">${ICON.review}</button>
+      <button class="icon-btn report-button" data-action="report-question" title="Report question">${ICON.wrong}</button>
+      ${state.user && state.user.isAdmin && state.viewMode==='admin' ? `<button class="icon-btn" data-action="edit-current-question" title="Edit current question">${ICON.edit}</button>` : ''}
     </div>
   </div>
   <div class="card">
@@ -1498,6 +1563,7 @@ async function startQuizAction(scope, sectionId, testId){
   let hash;
   if(scope==='test') hash = `#/user/quiz/test/${sectionId}/${testId}`;
   else if(scope==='sectionAll') hash = `#/user/quiz/sectionAll/${sectionId}`;
+  else if(scope==='important') hash = `#/user/quiz/important`;
   else hash = `#/user/quiz/allSections`;
   if(location.hash===hash) await render(); else navigate(hash);
 }
@@ -1524,6 +1590,9 @@ async function renderAdminRoute(segs){
   const [section] = segs;
   if(section==='home' || !section) return await renderAdminHome();
   if(section==='users') return await renderAdminUsers();
+  if(section==='reports') return segs[1] ? await renderAdminReportDetail(segs[1]) : await renderAdminReports();
+  if(section==='report-history') return await renderAdminReportHistory();
+  if(section==='important') return await renderAdminImportantQuestions();
   if(section==='sections'){
     if(segs[1] && segs[2]==='tests'){
       if(segs[3]) return await renderAdminTestEdit(segs[1], segs[3]);
@@ -1536,8 +1605,8 @@ async function renderAdminRoute(segs){
 }
 
 async function renderAdminHome(){
-  const [sections, questionsSnap, attemptsCount, users] = await Promise.all([
-    Data.getSections(), getDocs(questionsCol), Data.getAllAttemptsCount(), Data.getAllUsers()
+  const [sections, questionsSnap, attemptsCount, users, reports] = await Promise.all([
+    Data.getSections(), getDocs(questionsCol), Data.getAllAttemptsCount(), Data.getAllUsers(), Data.getReports('open')
   ]);
   const testsPerSection = await Promise.all(sections.map(s => Data.getTests(s.id)));
   const testsTotal = testsPerSection.reduce((sum,arr) => sum + arr.length, 0);
@@ -1550,7 +1619,7 @@ async function renderAdminHome(){
     <div class="stat"><div class="num">${questionsSnap.size}</div><div class="label">Questions</div></div>
     <div class="stat"><div class="num">${attemptsCount}</div><div class="label">Tests taken by users</div></div>
     <div class="stat"><div class="num">${users.filter(u=>!u.isAdmin).length}</div><div class="label">Registered users</div></div>
-    <div class="stat clickable" data-action="go" data-hash="#/admin/sections"><div class="num" style="color:var(--teal);">→</div><div class="label">Manage sections</div></div>
+    <div class="stat clickable" data-action="go" data-hash="#/admin/reports"><div class="num" style="color:var(--red);">${reports.length}</div><div class="label">Open reports</div></div>
   </div>`;
 }
 
@@ -1599,7 +1668,7 @@ async function renderAdminSettings(){
       </div>
       <label class="switch"><input type="checkbox" data-action="toggle-live-grading" ${s.liveGrading?'checked':''} /><span class="switch-slider"></span></label>
     </div>
-  </div>`;
+  </div><div class="card clickable" data-action="go" data-hash="#/admin/users"><div style="font-weight:700;">${ICON.users} Manage Users</div><div class="muted" style="font-size:13px;margin-top:6px;">Rename users, manage admin permissions, and delete accounts.</div></div>`;
 }
 
 async function renderAdminSectionTests(sectionId){
@@ -1656,18 +1725,64 @@ async function renderAdminTestEdit(sectionId, testId){
 }
 
 async function renderAdminUsers(){
-  const users = (await Data.getAllUsers()).filter(u=>!u.isAdmin);
-  return `
-  <h1 class="page-title">Manage Users</h1>
-  <p class="page-sub">Everyone who has signed in to STEP.</p>
-  ${users.length===0 ? emptyBlock('No users have signed up yet.') : `
-  <table class="simple">
-    <thead><tr><th>Number</th><th>Name</th><th>Joined</th></tr></thead>
-    <tbody>
-      ${users.map(u=>`<tr><td class="mono">#${esc(u.number)}</td><td>${esc(u.name)}</td><td class="muted">${fmtDateTime(u.createdAt)}</td></tr>`).join('')}
-    </tbody>
-  </table>`}`;
+  const users = await Data.getAllUsers();
+  return `<h1 class="page-title">Manage Users</h1>
+  <p class="page-sub">Rename users, change admin permissions, or delete accounts.</p>
+  ${users.length ? `<div style="overflow-x:auto;"><table class="simple"><thead><tr><th>Number</th><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>
+  ${users.map(u=>`<tr><td class="mono">#${esc(u.number)}</td><td>${esc(u.name||'—')}</td><td>${u.isAdmin?'<span class="badge badge-amber">Admin</span>':'<span class="badge badge-teal">User</span>'}</td><td>
+  <button class="btn btn-sm btn-ghost" data-action="rename-user" data-id="${u.id}" data-name="${esc(u.name||'')}">Rename</button>
+  <button class="btn btn-sm ${u.isAdmin?'btn-danger':'btn-primary'}" data-action="toggle-user-admin" data-id="${u.id}" data-admin="${u.isAdmin}">${u.isAdmin?'Remove admin':'Make admin'}</button>
+  <button class="btn btn-sm btn-danger" data-action="delete-user" data-id="${u.id}">Delete</button></td></tr>`).join('')}
+  </tbody></table></div>` : emptyBlock('No users yet.')}`;
 }
+
+/* ============ MERGED FEATURES: IMPORTANT QUESTIONS + REPORTS ============ */
+function reportSnapshot(q, selectedIndex){
+  return { questionId:q.id, testId:q.testId||null, sectionId:q.sectionId||null, text:q.text||'', options:(q.options||[]).slice(), correctIndex:q.correctIndex, selectedIndex:selectedIndex===undefined?null:selectedIndex, selectedAnswer:selectedIndex!==null&&selectedIndex!==undefined?(q.options||[])[selectedIndex]||'':'', correctAnswer:(q.options||[])[q.correctIndex]||'' };
+}
+async function renderImportantQuestions(){
+  const qs=await Data.getImportantQuestions();
+  return `<h1 class="page-title">Important Questions</h1><p class="page-sub">Questions selected by the admin for focused review.</p>
+    ${qs.length?`<button class="btn btn-amber" style="margin-bottom:16px;" data-action="start-important">Review Important Questions</button>`:''}
+    ${qs.length?qs.map((q,i)=>`<div class="card"><div class="badge badge-teal">Important · ${i+1}</div><div style="font-weight:600;margin-top:8px;">${esc(q.text)}</div><div style="margin-top:10px;">${(q.options||[]).map((o,j)=>`<div class="option ${j===q.correctIndex?'correct':''}" style="margin-bottom:6px;padding:8px 12px;"><span class="letter">${letterOf(j)}</span><span>${esc(o)}</span></div>`).join('')}</div></div>`).join(''):emptyBlock('No important questions yet.')}`;
+}
+async function startImportantReview(){
+  const qs=await Data.getImportantQuestions(); if(!qs.length){toast('No important questions yet');return;}
+  state.quiz=newQuizSession({scope:'important',sectionId:null,testId:'important',testTitle:'Important Questions',sectionName:'Important',questions:qs},'important');
+  navigate('#/user/quiz/important');
+}
+async function renderAdminImportantQuestions(){
+  const qs=await Data.getImportantQuestions();
+  return `<h1 class="page-title">Important Questions</h1><p class="page-sub">Manage the global important-question list.</p><button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-important">Add Important Question</button>${qs.length?qs.map(q=>`<div class="card"><div class="row-between"><div style="font-weight:600;flex:1;">${esc(q.text)}</div><div style="display:flex;gap:6px;"><button class="icon-btn" data-action="edit-important" data-id="${q.id}">${ICON.edit}</button><button class="icon-btn" data-action="delete-important" data-id="${q.id}">${ICON.trash}</button></div></div><div style="margin-top:10px;">${(q.options||[]).map((o,j)=>`<div class="option ${j===q.correctIndex?'correct':''}" style="margin-bottom:6px;padding:8px 12px;"><span class="letter">${letterOf(j)}</span><span>${esc(o)}</span></div>`).join('')}</div></div>`).join(''):emptyBlock('No important questions yet.')}`;
+}
+function openImportantEditor(id,q){ setModal({type:'question',question:q||{text:'',options:['','','',''],correctIndex:0},editId:id||null,important:true}); }
+async function addOrEditImportant(id){
+  const text=document.getElementById('qm-text').value.trim(), rows=Array.from(document.querySelectorAll('#question-modal-options > .opt-drag-row')), options=rows.map(r=>r.querySelector('.qm-opt-input').value.trim()); let correctIndex=-1; rows.forEach((r,i)=>{if(r.querySelector('.qm-radio').checked)correctIndex=i;});
+  if(!text||!options[0]||!options[1]||!options[2]||correctIndex<0){alert('Fill the question, at least A–C, and select the correct answer.');return;}
+  const data={text,options:options[3]?options:options.slice(0,3),correctIndex}; if(id) await Data.updateImportantQuestion(id,data); else await Data.addImportantQuestion(data); state.modal=null; render();
+}
+async function renderAdminReports(){
+  const rs=await Data.getReports('open');
+  return `<h1 class="page-title">Reports</h1><p class="page-sub">Open reports submitted by users.</p>${rs.length?rs.map(r=>`<div class="card clickable report-card" data-action="go" data-hash="#/admin/reports/${r.id}"><div class="row-between"><div><div class="badge badge-red">Open</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12px;margin-top:5px;">#${esc(r.reportedByNumber||'—')} · ${fmtDateTime(r.createdAt)}</div></div><span style="color:var(--red);">${ICON.wrong}</span></div></div>`).join(''):emptyBlock('No open reports.')}`;
+}
+async function renderAdminReportDetail(id){
+  const r=await Data.getReport(id); if(!r)return emptyBlock('Report not found.'); const q=r.question||{};
+  return `<h1 class="page-title">Report Details</h1><p class="page-sub">Submitted by ${esc(r.reportedByName||'User')} · #${esc(r.reportedByNumber||'—')} · ${fmtDateTime(r.createdAt)}</p><div class="card report-card"><div class="badge badge-red">Open Report</div><h3 style="margin:12px 0 8px;">${esc(q.text||'')}</h3><div class="muted" style="line-height:1.8;">User answer: <b>${esc(q.selectedAnswer||'Not answered')}</b><br/>System answer: <b>${esc(q.correctAnswer||'—')}</b><br/>Details: ${esc(r.note||'No extra details')}</div><div style="margin-top:12px;">${(q.options||[]).map((o,i)=>`<div class="option ${i===q.correctIndex?'correct':''} ${i===q.selectedIndex&&i!==q.correctIndex?'wrong':''}"><span class="letter">${letterOf(i)}</span><span>${esc(o)}</span></div>`).join('')}</div></div><div class="row-between" style="gap:10px;flex-wrap:wrap;"><button class="btn btn-primary" data-action="edit-report-question" data-id="${id}">${ICON.edit} Edit Question</button><button class="btn btn-amber" data-action="finish-report" data-id="${id}">${ICON.check} Finish Report</button></div>`;
+}
+async function renderAdminReportHistory(){
+  const rs=await Data.getReportHistory();
+  return `<h1 class="page-title">Report History</h1><p class="page-sub">All reports completed by administrators.</p>${rs.length?rs.map(r=>`<div class="card"><div class="badge badge-green">Closed</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12.5px;margin-top:6px;">User #${esc(r.reportedByNumber||'—')} · Closed by #${esc(r.closedBy?.number||r.closedBy||'—')} · ${fmtDateTime(r.closedAt)}</div><div class="muted" style="font-size:13px;margin-top:8px;">${esc(r.changeSummary||'Question reviewed')}</div></div>`).join(''):emptyBlock('No completed reports yet.')}`;
+}
+async function submitQuestionReport(){
+  const q=currentQuestion(), selected=state.quiz.answers[q.id];
+  try{ await Data.addReport({reportedBy:state.user.id,reportedByNumber:state.user.number,reportedByName:state.user.name||'',note:(document.getElementById('report-note')||{}).value||'',question:reportSnapshot(q,selected===undefined?null:selected),source:{scope:state.quiz.scope,sectionName:state.quiz.sectionName,testTitle:state.quiz.testTitle}}); state.modal=null; toast('Report sent to the admin'); render(); }catch(e){console.error(e);toast('Could not send report');}
+}
+function openQuestionReport(){ const q=currentQuestion(), selected=state.quiz.answers[q.id]; setModal({type:'report',question:q,selectedIndex:selected===undefined?null:selected}); }
+async function openReportEditor(id){ const r=await Data.getReport(id); if(r&&r.question){setModal({type:'question',question:{id:r.question.questionId,testId:r.question.testId,sectionId:r.question.sectionId,text:r.question.text,options:r.question.options,correctIndex:r.question.correctIndex},editId:r.question.questionId,reportId:id});} }
+async function finishReport(id){ const r=await Data.getReport(id); if(!r)return; if(confirm('Finish this report and move it to Report History?')){await Data.finishReport(r,{number:state.user.number,name:state.user.name||''});toast('Report completed');navigate('#/admin/reports');} }
+async function renameUser(id,current){ const n=prompt('New user name',current||''); if(n&&n.trim()){await updateDoc(doc(usersCol,id),{name:n.trim()});render();} }
+async function toggleUserAdmin(id,current){ await updateDoc(doc(usersCol,id),{isAdmin:!current}); render(); }
+async function deleteUser(id){ if(id===ADMIN_NUMBER){toast('The primary admin cannot be deleted');return;} if(confirm('Delete this user?')){await deleteDoc(doc(usersCol,id));render();} }
 
 /* ============ MISC ACTIONS ============ */
 async function deleteRefAction(kind, qid){
@@ -1788,8 +1903,11 @@ async function handleQuestionSubmit(editId){
   }
   const data = { text, options, correctIndex };
   if(orderVal!==null && !isNaN(orderVal)) data.order = orderVal;
+  if(m.important){ await addOrEditImportant(editId, data); return; }
   if(editId){
     await Data.updateQuestion(editId, data);
+    if(state.quiz){ const qi=state.quiz.questions.findIndex(x=>x.id===editId); if(qi>=0) state.quiz.questions[qi]={...state.quiz.questions[qi],...data}; }
+    if(m.reportId){ await Data.updateReport(m.reportId,{questionAfter:{...m.question,...data},changeSummary:`Question edited by #${state.user.number}`,editedBy:state.user.number}); state.modal=null; toast('Question updated'); navigate(`#/admin/reports/${m.reportId}`); return; }
   } else {
     await Data.addQuestion(m.testId, m.sectionId, data);
   }
@@ -1840,6 +1958,22 @@ async function onAppClick(e){
     case 'edit-question': await openEditQuestionModal(t.dataset.id, t.dataset.testId, t.dataset.sectionId); break;
     case 'delete-question': openDeleteQuestionConfirm(t.dataset.id, t.dataset.testId, t.dataset.sectionId); break;
 
+    case 'toggle-admin-mode':
+      if(state.user && state.user.isAdmin){ state.viewMode=state.viewMode==='admin'?'user':'admin'; state.menuOpen=false; if(state.quiz) render(); else navigate(state.viewMode==='admin'?'#/admin/home':'#/user/home'); }
+      break;
+    case 'report-question': openQuestionReport(); break;
+    case 'submit-report': await submitQuestionReport(); break;
+    case 'start-important': await startImportantReview(); break;
+    case 'edit-current-question': openQuestionModal(currentQuestion().testId,currentQuestion().sectionId); state.modal.editId=currentQuestion().id; state.modal.question=currentQuestion(); render(); break;
+    case 'edit-report-question': await openReportEditor(t.dataset.id); break;
+    case 'finish-report': await finishReport(t.dataset.id); break;
+    case 'rename-user': await renameUser(t.dataset.id,t.dataset.name); break;
+    case 'toggle-user-admin': await toggleUserAdmin(t.dataset.id,t.dataset.admin==='true'); break;
+    case 'delete-user': await deleteUser(t.dataset.id); break;
+    case 'add-important': openImportantEditor(null); break;
+    case 'edit-important': { const qs=await Data.getImportantQuestions(); openImportantEditor(t.dataset.id,qs.find(q=>q.id===t.dataset.id)); break; }
+    case 'delete-important': if(confirm('Delete this important question?')){await Data.deleteImportantQuestion(t.dataset.id);render();} break;
+
     case 'modal-confirm': await handleModalConfirm(); break;
     case 'modal-choice': await handleModalChoice(t.dataset.value); break;
     case 'modal-quickadd-submit': await handleQuickAddSubmit(); break;
@@ -1872,12 +2006,12 @@ async function onAppSubmit(e){
     if(number === ADMIN_NUMBER){
       let u = await Data.getUser(ADMIN_NUMBER);
       if(!u) u = await Data.createUser(ADMIN_NUMBER, 'Admin', true);
-      state.user = u;
+      state.user = u; state.viewMode='admin';
       saveSession(u);
       navigate('#/admin/home');
     } else {
       let u = await Data.getUser(number);
-      if(u){ state.user = u; saveSession(u); navigate('#/user/home'); }
+      if(u){ state.user = u; state.viewMode=u.isAdmin?'user':'user'; saveSession(u); navigate('#/user/home'); }
       else { state.pendingNumber = number; navigate('#/name'); }
     }
   } else if(e.target.id === 'name-form'){
@@ -1910,7 +2044,7 @@ function offlineEnabled(){ return state.user ? localStorage.getItem(offlineToggl
 function setOfflineEnabled(v){ if(state.user) try{ localStorage.setItem(offlineToggleKey(), v?'1':'0'); }catch(e){} }
 function getOfflineBlob(){
   if(!state.user) return null;
-  try{ const v = localStorage.getItem(offlineBlobKey()); return v ? JSON.parse(v) : null; }catch(e){ return null; }
+  try{ const v = localStorage.getItem(offlineBlobKey()); const b=v?JSON.parse(v):null; return b && Array.isArray(b.sections) && Array.isArray(b.tests) && Array.isArray(b.questions) ? b : null; }catch(e){ return null; }
 }
 function saveOfflineBlob(b){
   if(!state.user) return false;
@@ -2001,7 +2135,7 @@ async function initApp(){
       const [u, s] = await Promise.all([ Data.getUser(saved.number), settingsPromise ]);
       state.settings = s;
       if(u){
-        state.user = u;
+        state.user = u; state.viewMode = u.isAdmin && location.hash.startsWith('#/admin') ? 'admin' : 'user';
         if(!location.hash || location.hash==='#/login' || location.hash==='#/name'){
           location.hash = u.isAdmin ? '#/admin/home' : '#/user/home';
         }
