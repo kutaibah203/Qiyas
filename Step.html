@@ -36,6 +36,7 @@ h1,h2,h3,.display{ font-family:'Space Grotesk',sans-serif; letter-spacing:-0.01e
 .mono{ font-family:'JetBrains Mono',monospace; }
 a{color:inherit;}
 button{ font-family:inherit; cursor:pointer; }
+svg{ width:20px; height:20px; flex-shrink:0; vertical-align:middle; }
 ::selection{ background:var(--amber); color:#1a1408; }
 
 #app{ max-width:640px; margin:0 auto; padding:0 16px 60px; min-height:100vh; }
@@ -279,6 +280,22 @@ table.simple tr:last-child td{ border-bottom:none; }
 .opt-drag-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
 .opt-drag-row .drag-handle{ border-radius:9px; border-right:1px solid var(--border); height:48px; }
 .opt-drag-row .field-inline{ flex:1; display:flex; align-items:center; gap:10px; }
+
+/* ---- quiz nav (circular Prev/Next) ---- */
+.quiz-nav{ display:flex; align-items:center; justify-content:center; gap:26px; margin-top:6px; }
+.nav-circle{
+  width:52px; height:52px; border-radius:50%; border:1px solid var(--border); background:var(--surface-2);
+  color:var(--text); display:flex; align-items:center; justify-content:center; transition:.15s; flex-shrink:0;
+}
+.nav-circle svg{ width:22px; height:22px; }
+.nav-circle:hover{ border-color:var(--teal); background:var(--surface-3); }
+.nav-circle[disabled]{ opacity:.35; cursor:not-allowed; }
+.nav-circle-primary{ background:var(--amber); border-color:var(--amber); color:#1a1408; }
+.nav-circle-primary:hover{ background:var(--amber); filter:brightness(1.08); }
+
+/* ---- notifications dropdown (admin home) ---- */
+.notif-row{ padding:10px 0; border-top:1px solid var(--border-soft); }
+.notif-row:first-child{ border-top:none; }
 </style>
 </head>
 <body>
@@ -320,6 +337,7 @@ const ADMIN_NUMBER = '731';
 /* ============ ICONS ============ */
 const ICON = {
   back:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>`,
+  forward:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`,
   menu:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`,
   close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`,
   trash:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg>`,
@@ -600,6 +618,9 @@ const Data = {
     const snap = await getDocs(usersCol);
     return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'desc');
   },
+  async setUserPassword(userId, password){
+    await updateDoc(doc(usersCol, userId), { password: password || '' });
+  },
 
   // sections
   async getSections(){
@@ -749,7 +770,11 @@ const Data = {
     return snap.exists()?{id:snap.id,...snap.data()}:null;
   },
   async addReport(data){
-    const ref=await addDoc(collection(db,'reports'),{...data,status:'open',createdAt:serverTimestamp()});
+    const ref=await addDoc(collection(db,'reports'),{...data,kind:'question',status:'open',createdAt:serverTimestamp()});
+    return ref.id;
+  },
+  async addPasswordRequest(data){
+    const ref=await addDoc(collection(db,'reports'),{...data,kind:'password',status:'open',createdAt:serverTimestamp()});
     return ref.id;
   },
   async updateReport(id,data){ await updateDoc(doc(db,'reports',id),data); },
@@ -788,6 +813,7 @@ const Data = {
 const state = {
   user: null,
   pendingNumber: null,
+  pendingLoginUser: null,
   menuOpen: false,
   modal: null,      // {type, ...payload}
   quiz: null,       // active quiz session
@@ -801,8 +827,8 @@ const app = document.getElementById('app');
 
 function navigate(hash){ location.hash = hash; }
 function goBack(){ history.back(); }
-function setModal(m){ state.modal = m; render(); }
-function closeModal(){ state.modal = null; render(); }
+function setModal(m){ state.modal = m; renderChromeOnly(); }
+function closeModal(){ state.modal = null; state.pendingLoginUser = null; renderChromeOnly(); }
 
 /* ============ SHARED UI ============ */
 function menuItemsFor(user){
@@ -811,7 +837,6 @@ function menuItemsFor(user){
       { icon: ICON.section, label:'Manage Sections', hash:'#/admin/sections' },
       { icon: ICON.wrong, label:'Reports', hash:'#/admin/reports' },
       { icon: ICON.history, label:'Report History', hash:'#/admin/report-history' },
-      { icon: ICON.users, label:'Manage Users', hash:'#/admin/users' },
       { icon: ICON.settings, label:'Settings', hash:'#/admin/settings' },
     ];
   }
@@ -821,6 +846,7 @@ function menuItemsFor(user){
     { icon: ICON.saved, label:'Saved Questions', hash:'#/user/saved' },
     { icon: ICON.check, label:'Important Questions', hash:'#/user/important' },
     { icon: ICON.history, label:'Test History', hash:'#/user/history' },
+    { icon: ICON.settings, label:'Settings', hash:'#/user/settings' },
   ];
 }
 
@@ -890,7 +916,7 @@ function renderModal(){
       <h3>${esc(m.title)}</h3>
       <div class="field">
         <label>${esc(m.label)}</label>
-        <input type="text" id="modal-input-val" value="${esc(m.value||'')}" placeholder="${esc(m.placeholder||'')}" autofocus />
+        <input type="${m.mask?'password':'text'}" id="modal-input-val" value="${esc(m.value||'')}" placeholder="${esc(m.placeholder||'')}" autofocus />
       </div>
       ${m.showOrder ? `
       <div class="field">
@@ -965,6 +991,19 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
         <div class="muted" style="margin-top:8px;font-size:13px;">Your answer: ${m.selectedIndex===null?'Not answered':esc((q.options||[])[m.selectedIndex]||'—')}<br/>System answer: ${esc((q.options||[])[q.correctIndex]||'—')}</div></div>
       <div class="field"><label>Details (optional)</label><textarea id="report-note" style="font-family:Inter,sans-serif;" placeholder="What seems wrong?"></textarea></div>
       <div class="modal-actions"><button class="btn btn-ghost" data-action="modal-cancel">Cancel</button><button class="btn btn-danger" data-action="submit-report">Send Report</button></div>`;
+  } else if(m.type==='passwordPrompt'){
+    body = `
+      <h3>Enter Password</h3>
+      <p class="muted" style="font-size:13px;">This account is protected with a password.</p>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="modal-password-val" placeholder="Password" autofocus />
+      </div>
+      ${m.error ? `<p style="color:var(--red);font-size:13px;margin-top:-6px;">${esc(m.error)}</p>` : ''}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" data-action="submit-login-password">Continue</button>
+      </div>`;
   } else if(m.type==='reviewGate'){
     body = `
       <h3>Marked for Review</h3>
@@ -986,6 +1025,18 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
 
 /* ============ ROUTER ============ */
 let lastRouteKey = null;
+let lastPageHtml = '';
+let lastPageWithTopbar = false;
+let hasRenderedOnce = false;
+// Re-paints only the topbar/menu/modal chrome around the last-known page content,
+// without re-running the page's async Firestore fetch. Used for opening/closing the
+// hamburger menu and modals, which used to feel slow because a full render() re-fetched
+// everything from the server just to flip a UI flag.
+function renderChromeOnly(){
+  if(!hasRenderedOnce){ render(); return; }
+  app.innerHTML = wrap(lastPageHtml, lastPageWithTopbar);
+  setupDragReorders();
+}
 async function render(){
   const hash = location.hash || '#/login';
   const parts = hash.replace(/^#\//,'').split('/').filter(Boolean);
@@ -1016,7 +1067,10 @@ async function render(){
     console.error(err);
     html = `<div class="empty">Something went wrong loading this page.<br><span class="faint">${esc(err.message||err)}</span></div>`;
   }
-  app.innerHTML = wrap(html, parts[0]!=='login' && parts[0]!=='name');
+  lastPageHtml = html;
+  lastPageWithTopbar = parts[0]!=='login' && parts[0]!=='name';
+  hasRenderedOnce = true;
+  app.innerHTML = wrap(lastPageHtml, lastPageWithTopbar);
   setupDragReorders();
 }
 function wrap(inner, withTopbar){
@@ -1078,6 +1132,7 @@ async function renderUserRoute(segs){
   if(section==='wrong') return await renderWrongQuestions();
   if(section==='saved') return await renderSavedQuestions();
   if(section==='important') return await renderImportantQuestions();
+  if(section==='settings') return await renderUserSettings();
   if(section==='history'){
     if(segs[1]) return await renderHistoryDetail(segs[1]);
     return await renderHistory();
@@ -1413,10 +1468,10 @@ function renderQuizScreen(){
       <button class="qdot ${i===quiz.currentIndex?'current':''} ${quiz.answers[qq.id]!==undefined?'answered':''} ${quiz.reviewSet.has(qq.id)?'reviewed':''}" data-action="goto-question" data-index="${i}">${i+1}</button>
     `).join('')}
   </div>
-  <div class="row-between">
-    <button class="btn btn-ghost" data-action="quiz-prev" ${quiz.currentIndex===0?'disabled':''}>Previous</button>
+  <div class="quiz-nav">
+    <button class="nav-circle" data-action="quiz-prev" ${quiz.currentIndex===0?'disabled':''} title="Previous question" aria-label="Previous question">${ICON.back}</button>
     ${quiz.currentIndex<total-1
-      ? `<button class="btn btn-primary" data-action="quiz-next">Next</button>`
+      ? `<button class="nav-circle nav-circle-primary" data-action="quiz-next" title="Next question" aria-label="Next question">${ICON.forward}</button>`
       : `<button class="btn btn-amber" data-action="quiz-submit">Submit Test</button>`}
   </div>`;
 }
@@ -1610,17 +1665,59 @@ async function renderAdminHome(){
   ]);
   const testsPerSection = await Promise.all(sections.map(s => Data.getTests(s.id)));
   const testsTotal = testsPerSection.reduce((sum,arr) => sum + arr.length, 0);
+  state.cache.adminHome = {
+    sectionsCount: sections.length, testsTotal, questionsCount: questionsSnap.size,
+    attemptsCount, usersCount: users.filter(u=>!u.isAdmin).length, reports
+  };
+  return buildAdminHomeHtml(state.cache.adminHome);
+}
+function buildAdminHomeHtml(data){
+  const { sectionsCount, testsTotal, questionsCount, attemptsCount, usersCount, reports } = data;
+  const notifOpen = !!state.cache.notifOpen;
   return `
   <h1 class="page-title">Admin Overview</h1>
   <p class="page-sub">A quick look at everything you've built.</p>
   <div class="grid grid-3">
-    <div class="stat"><div class="num">${sections.length}</div><div class="label">Sections</div></div>
+    <div class="stat"><div class="num">${sectionsCount}</div><div class="label">Sections</div></div>
     <div class="stat"><div class="num">${testsTotal}</div><div class="label">Tests</div></div>
-    <div class="stat"><div class="num">${questionsSnap.size}</div><div class="label">Questions</div></div>
+    <div class="stat"><div class="num">${questionsCount}</div><div class="label">Questions</div></div>
     <div class="stat"><div class="num">${attemptsCount}</div><div class="label">Tests taken by users</div></div>
-    <div class="stat"><div class="num">${users.filter(u=>!u.isAdmin).length}</div><div class="label">Registered users</div></div>
-    <div class="stat clickable" data-action="go" data-hash="#/admin/reports"><div class="num" style="color:var(--red);">${reports.length}</div><div class="label">Open reports</div></div>
+    <div class="stat"><div class="num">${usersCount}</div><div class="label">Registered users</div></div>
+    <div class="stat clickable" data-action="go" data-hash="#/admin/sections"><div class="num" style="color:var(--teal);">${ICON.section}</div><div class="label">Manage Sections</div></div>
+  </div>
+  <div class="card clickable" data-action="toggle-notifications">
+    <div class="row-between">
+      <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:15.5px;">
+        <span style="color:var(--red);display:flex;">${ICON.wrong}</span> Notifications
+        ${reports.length ? `<span class="badge badge-red">${reports.length}</span>` : ''}
+      </div>
+      <span class="muted" style="font-size:13px;">${notifOpen ? '▲ Hide' : '▼ Show'}</span>
+    </div>
+    ${notifOpen ? `
+    <div style="margin-top:12px;">
+      ${reports.length ? reports.map(r=>{
+        const isPwd = r.kind==='password';
+        const title = isPwd ? `Password request — #${esc(r.requestedByNumber||'—')}` : esc(r.question?.text||'Question report');
+        const sub = isPwd ? (r.hasExistingPassword?'Wants to change their password':'Wants to set a password') : `#${esc(r.reportedByNumber||'—')}`;
+        return `<div class="row-between clickable notif-row" data-action="go" data-hash="#/admin/reports">
+          <div style="flex:1;padding-right:10px;">
+            <div style="font-weight:600;font-size:13.5px;">${title}</div>
+            <div class="muted" style="font-size:11.5px;margin-top:3px;">${sub} · ${fmtDateTime(r.createdAt)}</div>
+          </div>
+          <span class="badge ${isPwd?'badge-amber':'badge-red'}">${isPwd?'Password':'Open'}</span>
+        </div>`;
+      }).join('') : `<div class="muted" style="font-size:13px;padding:6px 0;">No open reports or requests right now.</div>`}
+    </div>` : ''}
   </div>`;
+}
+function toggleAdminHomeNotifications(){
+  state.cache.notifOpen = !state.cache.notifOpen;
+  if(state.cache.adminHome){
+    lastPageHtml = buildAdminHomeHtml(state.cache.adminHome);
+    app.innerHTML = wrap(lastPageHtml, lastPageWithTopbar);
+  } else {
+    render();
+  }
 }
 
 async function renderAdminSections(){
@@ -1629,15 +1726,6 @@ async function renderAdminSections(){
   <h1 class="page-title">Manage Sections</h1>
   <p class="page-sub">Sections group tests together for your users.</p>
   <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-section">${ICON.plus} Add Section</button>
-  <div class="card clickable" data-action="go" data-hash="#/admin/settings" style="border-color:var(--border);">
-    <div class="row-between">
-      <div style="flex:1;font-weight:700;font-size:15.5px;display:flex;align-items:center;gap:10px;">
-        <span style="color:var(--amber);display:flex;">${ICON.settings}</span> Settings
-      </div>
-      <span class="muted" style="font-size:12.5px;">Live grading & app options →</span>
-    </div>
-  </div>
-  <hr class="sep" />
   ${sections.length===0 ? emptyBlock('No sections yet — add your first one.') :
     sections.map(s=>`
       <div class="card">
@@ -1668,7 +1756,7 @@ async function renderAdminSettings(){
       </div>
       <label class="switch"><input type="checkbox" data-action="toggle-live-grading" ${s.liveGrading?'checked':''} /><span class="switch-slider"></span></label>
     </div>
-  </div><div class="card clickable" data-action="go" data-hash="#/admin/users"><div style="font-weight:700;">${ICON.users} Manage Users</div><div class="muted" style="font-size:13px;margin-top:6px;">Rename users, manage admin permissions, and delete accounts.</div></div>`;
+  </div><div class="card clickable" data-action="go" data-hash="#/admin/users"><div style="font-weight:700;display:flex;align-items:center;gap:8px;"><span style="display:inline-flex;color:var(--amber);">${ICON.users}</span> Manage Users</div><div class="muted" style="font-size:13px;margin-top:6px;">Rename users, manage admin permissions, and delete accounts. Set or change a user's password.</div></div>`;
 }
 
 async function renderAdminSectionTests(sectionId){
@@ -1731,6 +1819,7 @@ async function renderAdminUsers(){
   ${users.length ? `<div style="overflow-x:auto;"><table class="simple"><thead><tr><th>Number</th><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>
   ${users.map(u=>`<tr><td class="mono">#${esc(u.number)}</td><td>${esc(u.name||'—')}</td><td>${u.isAdmin?'<span class="badge badge-amber">Admin</span>':'<span class="badge badge-teal">User</span>'}</td><td>
   <button class="btn btn-sm btn-ghost" data-action="rename-user" data-id="${u.id}" data-name="${esc(u.name||'')}">Rename</button>
+  <button class="btn btn-sm btn-ghost" data-action="set-user-password" data-id="${u.id}" data-has="${u.password?'1':'0'}">${u.password?'Change Password':'Set Password'}</button>
   <button class="btn btn-sm ${u.isAdmin?'btn-danger':'btn-primary'}" data-action="toggle-user-admin" data-id="${u.id}" data-admin="${u.isAdmin}">${u.isAdmin?'Remove admin':'Make admin'}</button>
   <button class="btn btn-sm btn-danger" data-action="delete-user" data-id="${u.id}">Delete</button></td></tr>`).join('')}
   </tbody></table></div>` : emptyBlock('No users yet.')}`;
@@ -1763,7 +1852,21 @@ async function addOrEditImportant(id){
 }
 async function renderAdminReports(){
   const rs=await Data.getReports('open');
-  return `<h1 class="page-title">Reports</h1><p class="page-sub">Open reports submitted by users.</p>${rs.length?rs.map(r=>`<div class="card clickable report-card" data-action="go" data-hash="#/admin/reports/${r.id}"><div class="row-between"><div><div class="badge badge-red">Open</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12px;margin-top:5px;">#${esc(r.reportedByNumber||'—')} · ${fmtDateTime(r.createdAt)}</div></div><span style="color:var(--red);">${ICON.wrong}</span></div></div>`).join(''):emptyBlock('No open reports.')}`;
+  return `<h1 class="page-title">Reports</h1><p class="page-sub">Open reports and password requests submitted by users.</p>${rs.length?rs.map(r=>{
+    if(r.kind==='password'){
+      return `<div class="card report-card">
+        <div class="row-between"><div><div class="badge badge-amber">Password request</div>
+        <div style="font-weight:700;margin-top:8px;">#${esc(r.requestedByNumber||'—')}${r.requestedByName?(' · '+esc(r.requestedByName)):''}</div>
+        <div class="muted" style="font-size:12px;margin-top:5px;">${r.hasExistingPassword?'Wants to change their password':'Wants to set a password'} · ${fmtDateTime(r.createdAt)}</div></div></div>
+        <div class="field" style="margin-top:12px;margin-bottom:0;"><label>Requested password</label><div class="mono" style="background:var(--bg-2);border:1px solid var(--border);padding:10px 12px;border-radius:8px;font-size:13.5px;">${esc(r.desiredPassword||'—')}</div></div>
+        <div class="row-between" style="gap:10px;margin-top:14px;">
+          <button class="btn btn-primary" style="flex:1;" data-action="approve-password-request" data-id="${r.id}">${ICON.check} Approve</button>
+          <button class="btn btn-danger" style="flex:1;" data-action="reject-password-request" data-id="${r.id}">Reject</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="card clickable report-card" data-action="go" data-hash="#/admin/reports/${r.id}"><div class="row-between"><div><div class="badge badge-red">Open</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12px;margin-top:5px;">#${esc(r.reportedByNumber||'—')} · ${fmtDateTime(r.createdAt)}</div></div><span style="color:var(--red);">${ICON.wrong}</span></div></div>`;
+  }).join(''):emptyBlock('No open reports.')}`;
 }
 async function renderAdminReportDetail(id){
   const r=await Data.getReport(id); if(!r)return emptyBlock('Report not found.'); const q=r.question||{};
@@ -1771,7 +1874,12 @@ async function renderAdminReportDetail(id){
 }
 async function renderAdminReportHistory(){
   const rs=await Data.getReportHistory();
-  return `<h1 class="page-title">Report History</h1><p class="page-sub">All reports completed by administrators.</p>${rs.length?rs.map(r=>`<div class="card"><div class="badge badge-green">Closed</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12.5px;margin-top:6px;">User #${esc(r.reportedByNumber||'—')} · Closed by #${esc(r.closedBy?.number||r.closedBy||'—')} · ${fmtDateTime(r.closedAt)}</div><div class="muted" style="font-size:13px;margin-top:8px;">${esc(r.changeSummary||'Question reviewed')}</div></div>`).join(''):emptyBlock('No completed reports yet.')}`;
+  return `<h1 class="page-title">Report History</h1><p class="page-sub">All reports and password requests completed by administrators.</p>${rs.length?rs.map(r=>{
+    if(r.kind==='password'){
+      return `<div class="card"><div class="badge badge-amber">Password request</div><div style="font-weight:700;margin-top:8px;">#${esc(r.requestedByNumber||'—')}${r.requestedByName?(' · '+esc(r.requestedByName)):''}</div><div class="muted" style="font-size:12.5px;margin-top:6px;">Closed by #${esc(r.closedBy?.number||r.closedBy||'—')} · ${fmtDateTime(r.closedAt)}</div><div class="muted" style="font-size:13px;margin-top:8px;">${esc(r.changeSummary||'Processed')}</div></div>`;
+    }
+    return `<div class="card"><div class="badge badge-green">Closed</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12.5px;margin-top:6px;">User #${esc(r.reportedByNumber||'—')} · Closed by #${esc(r.closedBy?.number||r.closedBy||'—')} · ${fmtDateTime(r.closedAt)}</div><div class="muted" style="font-size:13px;margin-top:8px;">${esc(r.changeSummary||'Question reviewed')}</div></div>`;
+  }).join(''):emptyBlock('No completed reports yet.')}`;
 }
 async function submitQuestionReport(){
   const q=currentQuestion(), selected=state.quiz.answers[q.id];
@@ -1783,6 +1891,63 @@ async function finishReport(id){ const r=await Data.getReport(id); if(!r)return;
 async function renameUser(id,current){ const n=prompt('New user name',current||''); if(n&&n.trim()){await updateDoc(doc(usersCol,id),{name:n.trim()});render();} }
 async function toggleUserAdmin(id,current){ await updateDoc(doc(usersCol,id),{isAdmin:!current}); render(); }
 async function deleteUser(id){ if(id===ADMIN_NUMBER){toast('The primary admin cannot be deleted');return;} if(confirm('Delete this user?')){await deleteDoc(doc(usersCol,id));render();} }
+
+/* ---- passwords (admin side) ---- */
+function openSetPasswordModal(userId, hasPassword){
+  setModal({ type:'textInput', title: hasPassword?'Change Password':'Set Password', label:'Password', placeholder:'Enter a password', confirmLabel:'Save', purpose:'setUserPassword', id:userId, mask:true });
+}
+async function approvePasswordRequest(id){
+  const r = await Data.getReport(id); if(!r) return;
+  if(!confirm(`Set this password for user #${r.requestedByNumber||''}?`)) return;
+  try{
+    await Data.setUserPassword(r.requestedBy, r.desiredPassword||'');
+    await Data.finishReport({...r, changeSummary:'Password request approved'}, {number:state.user.number, name:state.user.name||''});
+    if(state.user && state.user.id===r.requestedBy) state.user.password = r.desiredPassword||'';
+    toast('Password updated for the user');
+  }catch(e){ console.error(e); toast('Could not update the password'); }
+  render();
+}
+async function rejectPasswordRequest(id){
+  const r = await Data.getReport(id); if(!r) return;
+  if(!confirm('Reject this password request?')) return;
+  try{ await Data.finishReport({...r, changeSummary:'Password request rejected'}, {number:state.user.number, name:state.user.name||''}); toast('Request rejected'); }
+  catch(e){ console.error(e); toast('Could not reject the request'); }
+  render();
+}
+
+/* ---- passwords (user side) ---- */
+function openRequestPasswordModal(){
+  const hasPassword = !!(state.user && state.user.password);
+  setModal({ type:'textInput', title: hasPassword?'Request Password Change':'Request Password', label:'Password you want to use', placeholder:'Type the password you want', confirmLabel:'Send Request', purpose:'requestPassword', mask:true });
+}
+async function renderUserSettings(){
+  const hasPassword = !!(state.user && state.user.password);
+  return `
+  <h1 class="page-title">Settings</h1>
+  <p class="page-sub">Manage your account security.</p>
+  <div class="card">
+    <div style="font-weight:700;font-size:15.5px;margin-bottom:4px;">Password</div>
+    <div class="muted" style="font-size:13px;line-height:1.6;">
+      ${hasPassword ? 'Your account is protected with a password. Sending a new request goes to the admin for approval before it takes effect.' : 'Your account does not have a password yet — anyone with your number can log in as you. You can request the admin to set one.'}
+    </div>
+    <button class="btn ${hasPassword?'btn-ghost':'btn-primary'}" style="margin-top:14px;" data-action="request-password">${hasPassword?'Request Change':'Request Password'}</button>
+  </div>`;
+}
+
+/* ---- login password prompt ---- */
+async function submitLoginPassword(){
+  const m = state.modal, u = state.pendingLoginUser;
+  if(!m || !u) return;
+  const val = (document.getElementById('modal-password-val')||{}).value || '';
+  if(val !== (u.password||'')){
+    setModal({...m, error:'Incorrect password. Try again.'});
+    return;
+  }
+  state.modal = null; state.pendingLoginUser = null;
+  state.user = u; state.viewMode = u.isAdmin ? 'admin' : 'user';
+  saveSession(u);
+  navigate(u.isAdmin ? '#/admin/home' : '#/user/home');
+}
 
 /* ============ MISC ACTIONS ============ */
 async function deleteRefAction(kind, qid){
@@ -1837,6 +2002,15 @@ async function handleModalConfirm(){
     if(!val) return;
     if(m.purpose==='addSection'){ await Data.addSection(val); }
     else if(m.purpose==='editSection'){ await Data.updateSection(m.id, val); }
+    else if(m.purpose==='setUserPassword'){
+      await Data.setUserPassword(m.id, val);
+      toast('Password saved');
+    }
+    else if(m.purpose==='requestPassword'){
+      const hasPassword = !!(state.user && state.user.password);
+      await Data.addPasswordRequest({ requestedBy: state.user.id, requestedByNumber: state.user.number, requestedByName: state.user.name||'', desiredPassword: val, hasExistingPassword: hasPassword });
+      toast('Request sent to the admin');
+    }
     else if(m.purpose==='editTestTitle'){
       const orderInput = document.getElementById('modal-input-order');
       const orderVal = orderInput && orderInput.value!=='' ? parseInt(orderInput.value,10) : null;
@@ -1926,9 +2100,9 @@ async function onAppClick(e){
     case 'go': navigate(t.dataset.hash); break;
     case 'back': goBack(); break;
     case 'logout': doLogout(); break;
-    case 'open-menu': state.menuOpen = true; render(); break;
-    case 'close-menu': state.menuOpen = false; render(); break;
-    case 'menu-backdrop': if(e.target === t){ state.menuOpen = false; render(); } break;
+    case 'open-menu': state.menuOpen = true; renderChromeOnly(); break;
+    case 'close-menu': state.menuOpen = false; renderChromeOnly(); break;
+    case 'menu-backdrop': if(e.target === t){ state.menuOpen = false; renderChromeOnly(); } break;
     case 'modal-backdrop': if(e.target === t) closeModal(); break;
     case 'modal-cancel': closeModal(); break;
 
@@ -1970,6 +2144,12 @@ async function onAppClick(e){
     case 'rename-user': await renameUser(t.dataset.id,t.dataset.name); break;
     case 'toggle-user-admin': await toggleUserAdmin(t.dataset.id,t.dataset.admin==='true'); break;
     case 'delete-user': await deleteUser(t.dataset.id); break;
+    case 'set-user-password': openSetPasswordModal(t.dataset.id, t.dataset.has==='1'); break;
+    case 'toggle-notifications': toggleAdminHomeNotifications(); break;
+    case 'approve-password-request': await approvePasswordRequest(t.dataset.id); break;
+    case 'reject-password-request': await rejectPasswordRequest(t.dataset.id); break;
+    case 'request-password': openRequestPasswordModal(); break;
+    case 'submit-login-password': await submitLoginPassword(); break;
     case 'add-important': openImportantEditor(null); break;
     case 'edit-important': { const qs=await Data.getImportantQuestions(); openImportantEditor(t.dataset.id,qs.find(q=>q.id===t.dataset.id)); break; }
     case 'delete-important': if(confirm('Delete this important question?')){await Data.deleteImportantQuestion(t.dataset.id);render();} break;
@@ -2011,7 +2191,14 @@ async function onAppSubmit(e){
       navigate('#/admin/home');
     } else {
       let u = await Data.getUser(number);
-      if(u){ state.user = u; state.viewMode=u.isAdmin?'user':'user'; saveSession(u); navigate('#/user/home'); }
+      if(u){
+        if(u.password){
+          state.pendingLoginUser = u;
+          setModal({ type:'passwordPrompt' });
+        } else {
+          state.user = u; state.viewMode='user'; saveSession(u); navigate('#/user/home');
+        }
+      }
       else { state.pendingNumber = number; navigate('#/name'); }
     }
   } else if(e.target.id === 'name-form'){
