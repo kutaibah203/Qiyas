@@ -293,12 +293,11 @@ table.simple tr:last-child td{ border-bottom:none; }
 .nav-circle-primary{ background:var(--amber); border-color:var(--amber); color:#1a1408; }
 .nav-circle-primary:hover{ background:var(--amber); filter:brightness(1.08); }
 @media (min-width:960px){
-  .quiz-nav{
-    position:fixed; top:50%; left:0; right:0; transform:translateY(-50%);
-    justify-content:space-between; padding:0 calc((100vw - 640px)/2 - 80px);
-    pointer-events:none; z-index:15; margin-top:0;
+  .nav-prev, .nav-next{
+    position:fixed; top:50%; transform:translateY(-50%); z-index:15;
   }
-  .quiz-nav .nav-circle{ pointer-events:auto; }
+  .nav-prev{ left:calc((100vw - 640px)/2 - 80px); }
+  .nav-next{ right:calc((100vw - 640px)/2 - 210px); }
 }
 
 /* ---- notifications dropdown (admin home) ---- */
@@ -1507,10 +1506,10 @@ function renderQuizScreen(){
     `).join('')}
   </div>
   <div class="quiz-nav">
-    <button class="nav-circle" data-action="quiz-prev" ${quiz.currentIndex===0?'disabled':''} title="Previous question" aria-label="Previous question">${ICON.back}</button>
+    <button class="nav-circle nav-prev" data-action="quiz-prev" ${quiz.currentIndex===0?'disabled':''} title="Previous question" aria-label="Previous question">${ICON.back}</button>
     ${quiz.currentIndex<total-1
-      ? `<button class="nav-circle nav-circle-primary" data-action="quiz-next" title="Next question" aria-label="Next question">${ICON.forward}</button>`
-      : `<button class="btn btn-amber" data-action="quiz-submit">Submit Test</button>`}
+      ? `<button class="nav-circle nav-circle-primary nav-next" data-action="quiz-next" title="Next question" aria-label="Next question">${ICON.forward}</button>`
+      : `<button class="btn btn-amber nav-next" data-action="quiz-submit">Submit Test</button>`}
   </div>`;
 }
 async function toggleSave(){
