@@ -292,6 +292,14 @@ table.simple tr:last-child td{ border-bottom:none; }
 .nav-circle[disabled]{ opacity:.35; cursor:not-allowed; }
 .nav-circle-primary{ background:var(--amber); border-color:var(--amber); color:#1a1408; }
 .nav-circle-primary:hover{ background:var(--amber); filter:brightness(1.08); }
+@media (min-width:960px){
+  .quiz-nav{
+    position:fixed; top:50%; left:0; right:0; transform:translateY(-50%);
+    justify-content:space-between; padding:0 calc((100vw - 640px)/2 - 80px);
+    pointer-events:none; z-index:15; margin-top:0;
+  }
+  .quiz-nav .nav-circle{ pointer-events:auto; }
+}
 
 /* ---- notifications dropdown (admin home) ---- */
 .notif-row{ padding:10px 0; border-top:1px solid var(--border-soft); }
@@ -402,6 +410,26 @@ function sortByCreatedAt(arr, dir='asc'){
 }
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function letterOf(i){ return ['A','B','C','D'][i]; }
+// Lets an admin type "Text: <passage>" as part of a question's text (typically on its own
+// line, followed by the actual question on the next line). During the quiz, only the question
+// line is shown, with a "Show Text" button that opens the passage in a modal.
+function extractQuestionParts(rawText){
+  const text = String(rawText==null?'':rawText);
+  const idx = text.search(/(^|\n)\s*text\s*:/i);
+  if(idx===-1) return { passage:null, question:text };
+  const marker = text.slice(idx).match(/text\s*:\s*/i);
+  const passageStart = idx + marker.index + marker[0].length;
+  const before = text.slice(0, idx).trim();
+  const rest = text.slice(passageStart).split('\n');
+  let question = '', passageLines = rest;
+  for(let i=rest.length-1;i>=0;i--){
+    if(rest[i].trim()){ question = rest[i].trim(); passageLines = rest.slice(0,i); break; }
+  }
+  const passage = passageLines.join('\n').trim();
+  if(!passage) return { passage:null, question:text };
+  question = (before ? before+' ' : '') + question;
+  return { passage, question: question || text };
+}
 
 /* ============ DRAG-TO-REORDER (hold handle, then drag) ============ */
 function initDragReorder(container, onReorder){
@@ -962,6 +990,7 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
       <div class="field">
         <label>Question text</label>
         <textarea id="qm-text" rows="3" style="font-family:'Inter',sans-serif;font-size:14px;">${esc(q.text)}</textarea>
+        <p class="faint" style="font-size:12px;margin-top:6px;">Tip: start a line with <code>Text:</code> followed by a reading/listening passage, then put the actual question on its own line below it — a "Show Text" button will appear during the quiz.</p>
       </div>
       <div class="field">
         <label>Question number — sets its display order inside this test</label>
@@ -1004,6 +1033,11 @@ Why did the father buy the car? A: To go to work. B: To sell it later. C: Becaus
         <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
         <button class="btn btn-primary" data-action="submit-login-password">Continue</button>
       </div>`;
+  } else if(m.type==='passageText'){
+    body = `
+      <h3>Text</h3>
+      <div class="muted" style="white-space:pre-wrap;line-height:1.8;font-size:14.5px;">${esc(m.text)}</div>
+      <div class="modal-actions"><button class="btn btn-primary" data-action="modal-cancel">Close</button></div>`;
   } else if(m.type==='reviewGate'){
     body = `
       <h3>Marked for Review</h3>
@@ -1443,7 +1477,11 @@ function renderQuizScreen(){
     </div>
   </div>
   <div class="card">
-    <div class="q-text">${esc(q.text)}</div>
+    ${(() => { const qp = extractQuestionParts(q.text); return `
+    <div class="q-text" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+      <span style="flex:1;">${esc(qp.question)}</span>
+      ${qp.passage ? `<button class="btn btn-sm btn-ghost" style="flex-shrink:0;" data-action="show-question-text">Show Text</button>` : ''}
+    </div>`; })()}
     ${q.options.map((opt,i)=>{
       const liveOn = state.settings && state.settings.liveGrading;
       const answered = selected!==undefined;
@@ -1565,6 +1603,7 @@ async function finalizeQuiz(){
 async function renderResult(attemptId){
   const a = attemptId==='offline' ? state.lastAttempt : await Data.getAttempt(attemptId);
   if(!a) return emptyBlock('Result not found.');
+  state.cache.resultAttempt = a;
   const isOffline = attemptId==='offline' || (a.scopeType||'').startsWith('offline');
   const pct = a.total ? Math.round((a.score/a.total)*100) : 0;
   const wrongAnswers = (a.answers||[]).filter(x=>!x.isCorrect);
@@ -1604,12 +1643,17 @@ async function renderResult(attemptId){
   ${wrongAnswers.length ? `<h2 style="margin-top:10px;">Missed Questions</h2>` : ''}
   ${wrongAnswers.map(w=>`
     <div class="card">
-      <div class="q-text" style="font-size:15px;">${esc(w.text)}</div>
+      <div class="row-between" style="align-items:flex-start;gap:10px;">
+        <div class="q-text" style="font-size:15px;margin-bottom:0;flex:1;">${esc(w.text)}</div>
+        <button class="icon-btn report-button" style="flex-shrink:0;" data-action="report-result-question" data-qid="${esc(w.questionId)}" title="Report question">${ICON.wrong}</button>
+      </div>
+      <div style="margin-top:12px;">
       ${w.options.map((opt,i)=>{
         let cls='';
         if(i===w.correctIndex) cls='correct'; else if(i===w.selectedIndex) cls='wrong';
         return `<div class="option ${cls}"><span class="letter">${letterOf(i)}</span><span>${esc(opt)}</span></div>`;
       }).join('')}
+      </div>
     </div>`).join('')}
   `;
 }
@@ -1685,7 +1729,7 @@ function buildAdminHomeHtml(data){
     <div class="stat"><div class="num">${usersCount}</div><div class="label">Registered users</div></div>
     <div class="stat clickable" data-action="go" data-hash="#/admin/sections"><div class="num" style="color:var(--teal);">${ICON.section}</div><div class="label">Manage Sections</div></div>
   </div>
-  <div class="card clickable" data-action="toggle-notifications">
+  <div class="card clickable" data-action="toggle-notifications" style="margin-top:22px;">
     <div class="row-between">
       <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:15.5px;">
         <span style="color:var(--red);display:flex;">${ICON.wrong}</span> Notifications
@@ -1818,10 +1862,12 @@ async function renderAdminUsers(){
   <p class="page-sub">Rename users, change admin permissions, or delete accounts.</p>
   ${users.length ? `<div style="overflow-x:auto;"><table class="simple"><thead><tr><th>Number</th><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody>
   ${users.map(u=>`<tr><td class="mono">#${esc(u.number)}</td><td>${esc(u.name||'—')}</td><td>${u.isAdmin?'<span class="badge badge-amber">Admin</span>':'<span class="badge badge-teal">User</span>'}</td><td>
+  <div style="display:flex;gap:6px;flex-wrap:nowrap;">
   <button class="btn btn-sm btn-ghost" data-action="rename-user" data-id="${u.id}" data-name="${esc(u.name||'')}">Rename</button>
   <button class="btn btn-sm btn-ghost" data-action="set-user-password" data-id="${u.id}" data-has="${u.password?'1':'0'}">${u.password?'Change Password':'Set Password'}</button>
   <button class="btn btn-sm ${u.isAdmin?'btn-danger':'btn-primary'}" data-action="toggle-user-admin" data-id="${u.id}" data-admin="${u.isAdmin}">${u.isAdmin?'Remove admin':'Make admin'}</button>
-  <button class="btn btn-sm btn-danger" data-action="delete-user" data-id="${u.id}">Delete</button></td></tr>`).join('')}
+  <button class="btn btn-sm btn-danger" data-action="delete-user" data-id="${u.id}">Delete</button>
+  </div></td></tr>`).join('')}
   </tbody></table></div>` : emptyBlock('No users yet.')}`;
 }
 
@@ -1882,10 +1928,37 @@ async function renderAdminReportHistory(){
   }).join(''):emptyBlock('No completed reports yet.')}`;
 }
 async function submitQuestionReport(){
-  const q=currentQuestion(), selected=state.quiz.answers[q.id];
-  try{ await Data.addReport({reportedBy:state.user.id,reportedByNumber:state.user.number,reportedByName:state.user.name||'',note:(document.getElementById('report-note')||{}).value||'',question:reportSnapshot(q,selected===undefined?null:selected),source:{scope:state.quiz.scope,sectionName:state.quiz.sectionName,testTitle:state.quiz.testTitle}}); state.modal=null; toast('Report sent to the admin'); render(); }catch(e){console.error(e);toast('Could not send report');}
+  const m = state.modal;
+  if(!m || !m.question) return;
+  try{
+    await Data.addReport({
+      reportedBy:state.user.id, reportedByNumber:state.user.number, reportedByName:state.user.name||'',
+      note:(document.getElementById('report-note')||{}).value||'',
+      question:reportSnapshot(m.question, m.selectedIndex===undefined?null:m.selectedIndex),
+      source: m.source || {}
+    });
+    state.modal=null; toast('Report sent to the admin'); render();
+  }catch(e){ console.error(e); toast('Could not send report'); }
 }
-function openQuestionReport(){ const q=currentQuestion(), selected=state.quiz.answers[q.id]; setModal({type:'report',question:q,selectedIndex:selected===undefined?null:selected}); }
+function openQuestionReport(question, selectedIndex, source){
+  const q = question || currentQuestion();
+  const sel = selectedIndex!==undefined ? selectedIndex : (state.quiz ? state.quiz.answers[q.id] : undefined);
+  const src = source || (state.quiz ? { scope:state.quiz.scope, sectionName:state.quiz.sectionName, testTitle:state.quiz.testTitle } : {});
+  setModal({ type:'report', question:q, selectedIndex: sel===undefined?null:sel, source:src });
+}
+function openReportFromResultAction(qid){
+  const a = state.cache.resultAttempt;
+  if(!a) return;
+  const w = (a.answers||[]).find(x=>x.questionId===qid);
+  if(!w) return;
+  const q = { id:w.questionId, testId:a.testId||null, sectionId:a.sectionId||null, text:w.text, options:w.options, correctIndex:w.correctIndex };
+  openQuestionReport(q, w.selectedIndex, { scope:a.scopeType, sectionName:a.sectionName, testTitle:a.testTitle });
+}
+function openQuestionTextModal(){
+  const q = currentQuestion();
+  const parts = extractQuestionParts(q.text);
+  setModal({ type:'passageText', text: parts.passage || '' });
+}
 async function openReportEditor(id){ const r=await Data.getReport(id); if(r&&r.question){setModal({type:'question',question:{id:r.question.questionId,testId:r.question.testId,sectionId:r.question.sectionId,text:r.question.text,options:r.question.options,correctIndex:r.question.correctIndex},editId:r.question.questionId,reportId:id});} }
 async function finishReport(id){ const r=await Data.getReport(id); if(!r)return; if(confirm('Finish this report and move it to Report History?')){await Data.finishReport(r,{number:state.user.number,name:state.user.name||''});toast('Report completed');navigate('#/admin/reports');} }
 async function renameUser(id,current){ const n=prompt('New user name',current||''); if(n&&n.trim()){await updateDoc(doc(usersCol,id),{name:n.trim()});render();} }
@@ -2136,6 +2209,8 @@ async function onAppClick(e){
       if(state.user && state.user.isAdmin){ state.viewMode=state.viewMode==='admin'?'user':'admin'; state.menuOpen=false; if(state.quiz) render(); else navigate(state.viewMode==='admin'?'#/admin/home':'#/user/home'); }
       break;
     case 'report-question': openQuestionReport(); break;
+    case 'show-question-text': openQuestionTextModal(); break;
+    case 'report-result-question': openReportFromResultAction(t.dataset.qid); break;
     case 'submit-report': await submitQuestionReport(); break;
     case 'start-important': await startImportantReview(); break;
     case 'edit-current-question': openQuestionModal(currentQuestion().testId,currentQuestion().sectionId); state.modal.editId=currentQuestion().id; state.modal.question=currentQuestion(); render(); break;
