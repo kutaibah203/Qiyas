@@ -712,7 +712,13 @@ const Data = {
   },
   async getQuestionsByIds(ids){
     const snaps = await Promise.all(ids.map(id => getDoc(doc(questionsCol,id))));
-    return snaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data()}));
+    const found = snaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data()}));
+    const foundIds = new Set(found.map(q=>q.id));
+    const missingIds = ids.filter(id=>!foundIds.has(id));
+    const importantSnaps = await Promise.all(missingIds.map(id=>getDoc(doc(db,'important_questions',id))));
+    const important = importantSnaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data(),isImportant:true}));
+    const byId = new Map([...found,...important].map(q=>[q.id,q]));
+    return ids.map(id=>byId.get(id)).filter(Boolean);
   },
   async addQuestion(testId, sectionId, q){
     let order = q.order;
@@ -807,13 +813,32 @@ const Data = {
   async updateReport(id,data){ await updateDoc(doc(db,'reports',id),data); },
   async finishReport(report,admin){
     const batch=writeBatch(db);
-    batch.set(doc(collection(db,'report_history')),{...report,status:'closed',closedAt:serverTimestamp(),closedBy:admin});
+    const reportData={...report}; delete reportData.id;
+    batch.set(doc(collection(db,'report_history')),{...reportData,status:'closed',closedAt:serverTimestamp(),closedBy:admin});
     batch.delete(doc(db,'reports',report.id));
     await batch.commit();
   },
   async getReportHistory(){
     const snap=await getDocs(collection(db,'report_history'));
-    return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>tsToDate(b.closedAt)-tsToDate(a.closedAt));
+    return snap.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>tsToDate(b.closedAt)-tsToDate(a.closedAt));
+  },
+  async getReportHistoryItem(id){
+    const snap=await getDoc(doc(db,'report_history',id));
+    return snap.exists()?{...snap.data(),id:snap.id}:null;
+  },
+  async reopenReport(id,admin){
+    const old=await Data.getReportHistoryItem(id);
+    if(!old || old.kind==='password') return null;
+    const {id:historyId,closedAt,closedBy,...report}=old;
+    const reopenedAt=serverTimestamp();
+    const ref=doc(collection(db,'reports'));
+    const batch=writeBatch(db);
+    batch.set(ref,{...report,status:'open',reopenedAt,reopenedBy:admin,reopenedFromHistoryId:historyId});
+    batch.update(doc(db,'report_history',historyId),{
+      status:'reopened',reopenedAt,reopenedBy:admin,reopenedReportId:ref.id
+    });
+    await batch.commit();
+    return ref.id;
   },
   // global important questions
   async getImportantQuestions(){
@@ -880,11 +905,13 @@ function menuItemsFor(user){
 function renderTopbar(){
   const modeButton = state.user && state.user.isAdmin
     ? `<button class="icon-btn" data-action="toggle-admin-mode" title="Switch between admin and user">${state.viewMode==='admin'?ICON.users:ICON.settings}</button>` : '';
+  const homeHash = state.user && state.user.isAdmin && state.viewMode==='admin' ? '#/admin/home' : '#/user/home';
   return `
   <div class="topbar">
     <div class="left">
       <button class="icon-btn" data-action="logout" title="Log out">${ICON.logout}</button>
       <button class="icon-btn" data-action="back" title="Back">${ICON.back}</button>
+      <button class="icon-btn" data-action="go" data-hash="${homeHash}" title="Home">${ICON.home}</button>
       ${modeButton}
     </div>
     <div class="brand">
@@ -1235,6 +1262,10 @@ async function renderSavedQuestions(){
 async function enrichQuestionRefs(items){
   const snaps = await Promise.all(items.map(it => getDoc(doc(questionsCol, it.questionId))));
   const questions = snaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data()}));
+  const foundIds = new Set(questions.map(q=>q.id));
+  const missingIds = items.map(it=>it.questionId).filter(id=>!foundIds.has(id));
+  const importantSnaps = await Promise.all(missingIds.map(id=>getDoc(doc(db,'important_questions',id))));
+  questions.push(...importantSnaps.filter(s=>s.exists()).map(s=>({id:s.id,...s.data(),isImportant:true})));
   const testIds = [...new Set(questions.map(q=>q.testId).filter(Boolean))];
   const sectionIds = [...new Set(questions.map(q=>q.sectionId).filter(Boolean))];
   const [testDocs, sectionDocs] = await Promise.all([
@@ -1249,7 +1280,7 @@ async function enrichQuestionRefs(items){
     const q = snapById[it.questionId];
     if(!q) continue;
     const test = testMap[q.testId], sec = sectionMap[q.sectionId];
-    out.push({ ref:it, question:q, testTitle: test?.title||'—', sectionName: sec?.name||'—' });
+    out.push({ ref:it, question:q, testTitle: test?.title||(q.isImportant?'Important Questions':'—'), sectionName: sec?.name||(q.isImportant?'Important':'—') });
   }
   return out;
 }
@@ -1551,12 +1582,13 @@ function quizSubmitClicked(){
 async function finalizeQuiz(){
   const quiz = state.quiz;
   const durationSec = Math.round((Date.now()-quiz.quizStartedAt)/1000);
-  const answersArr = quiz.questions.map(q => {
+  const answersArr = quiz.questions.map((q, questionIndex) => {
     const selectedIndex = quiz.answers[q.id] !== undefined ? quiz.answers[q.id] : -1;
     const isCorrect = selectedIndex === q.correctIndex;
     const timeSpentSec = Math.round((quiz.timeSpent[q.id]||0)/1000);
     return {
-      questionId:q.id, text:q.text, options:q.options, correctIndex:q.correctIndex,
+      questionId:q.id, testId:q.testId||quiz.testId||null, sectionId:q.sectionId||quiz.sectionId||null, order:q.order??questionIndex+1,
+      text:q.text, options:q.options, correctIndex:q.correctIndex,
       selectedIndex, isCorrect, timeSpentSec, saved: quiz.savedSet.has(q.id), reviewed: quiz.reviewSet.has(q.id)
     };
   });
@@ -1604,8 +1636,15 @@ async function renderResult(attemptId){
   if(!a) return emptyBlock('Result not found.');
   state.cache.resultAttempt = a;
   const isOffline = attemptId==='offline' || (a.scopeType||'').startsWith('offline');
+  state.cache.resultSavedSet = new Set((a.answers||[]).filter(x=>x.saved).map(x=>x.questionId));
+  if(!isOffline){
+    try{
+      const saved=await Data.getSavedByUser(state.user.id);
+      state.cache.resultSavedSet=new Set(saved.map(item=>item.questionId));
+    }catch(e){ console.error('Could not load saved status for result',e); }
+  }
   const pct = a.total ? Math.round((a.score/a.total)*100) : 0;
-  const wrongAnswers = (a.answers||[]).filter(x=>!x.isCorrect);
+  const answers = a.answers||[];
   let nextTestHtml = '';
   if(a.scopeType==='test' && a.sectionId && a.testId){
     const tests = await Data.getTests(a.sectionId);
@@ -1639,22 +1678,48 @@ async function renderResult(attemptId){
       </div>
     </div>
   </div>
-  ${wrongAnswers.length ? `<h2 style="margin-top:10px;">Missed Questions</h2>` : ''}
-  ${wrongAnswers.map(w=>`
+  ${answers.length ? `<h2 style="margin-top:10px;">Review Questions</h2>` : ''}
+  ${answers.map(w=>{
+    const isSaved=state.cache.resultSavedSet.has(w.questionId);
+    return `
     <div class="card">
       <div class="row-between" style="align-items:flex-start;gap:10px;">
         <div class="q-text" style="font-size:15px;margin-bottom:0;flex:1;">${esc(w.text)}</div>
-        <button class="icon-btn report-button" style="flex-shrink:0;" data-action="report-result-question" data-qid="${esc(w.questionId)}" title="Report question">${ICON.wrong}</button>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="icon-btn ${isSaved?'active-save':''}" data-action="toggle-result-save" data-qid="${esc(w.questionId)}" title="${isSaved?'Remove from Saved Questions':'Save question'}">${isSaved?ICON.bookmarkFilled:ICON.bookmark}</button>
+          ${!w.isCorrect?`<button class="icon-btn report-button" data-action="report-result-question" data-qid="${esc(w.questionId)}" title="Report question">${ICON.wrong}</button>`:''}
+        </div>
       </div>
+      <div class="badge ${w.isCorrect?'badge-green':'badge-red'}" style="margin-top:10px;">${w.isCorrect?'Correct':'Wrong'}</div>
       <div style="margin-top:12px;">
-      ${w.options.map((opt,i)=>{
-        let cls='';
+        ${w.options.map((opt,i)=>{
+          let cls='';
         if(i===w.correctIndex) cls='correct'; else if(i===w.selectedIndex) cls='wrong';
         return `<div class="option ${cls}"><span class="letter">${letterOf(i)}</span><span>${esc(opt)}</span></div>`;
-      }).join('')}
+        }).join('')}
       </div>
-    </div>`).join('')}
+    </div>`;
+  }).join('')}
   `;
+}
+async function toggleResultSave(qid){
+  const a=state.cache.resultAttempt;
+  if(!a) return;
+  if((a.scopeType||'').startsWith('offline') || a.id==='offline'){
+    toast('Saving questions needs an internet connection'); return;
+  }
+  const answer=(a.answers||[]).find(item=>item.questionId===qid);
+  if(!answer) return;
+  try{
+    if(state.cache.resultSavedSet.has(qid)){
+      await Data.removeSaved(state.user.id,qid);
+      state.cache.resultSavedSet.delete(qid);
+    } else {
+      await Data.addSaved(state.user.id,{id:qid,testId:answer.testId||a.testId||null,sectionId:answer.sectionId||a.sectionId||null});
+      state.cache.resultSavedSet.add(qid);
+    }
+    render();
+  }catch(e){ console.error('toggleResultSave failed',e); toast('Could not update saved question'); }
 }
 async function startQuizAction(scope, sectionId, testId){
   state.quiz = null;
@@ -1689,7 +1754,7 @@ async function renderAdminRoute(segs){
   if(section==='home' || !section) return await renderAdminHome();
   if(section==='users') return await renderAdminUsers();
   if(section==='reports') return segs[1] ? await renderAdminReportDetail(segs[1]) : await renderAdminReports();
-  if(section==='report-history') return await renderAdminReportHistory();
+  if(section==='report-history') return segs[1] ? await renderAdminReportHistoryDetail(segs[1]) : await renderAdminReportHistory();
   if(section==='important') return await renderAdminImportantQuestions();
   if(section==='sections'){
     if(segs[1] && segs[2]==='tests'){
@@ -1872,7 +1937,7 @@ async function renderAdminUsers(){
 
 /* ============ MERGED FEATURES: IMPORTANT QUESTIONS + REPORTS ============ */
 function reportSnapshot(q, selectedIndex){
-  return { questionId:q.id, testId:q.testId||null, sectionId:q.sectionId||null, text:q.text||'', options:(q.options||[]).slice(), correctIndex:q.correctIndex, selectedIndex:selectedIndex===undefined?null:selectedIndex, selectedAnswer:selectedIndex!==null&&selectedIndex!==undefined?(q.options||[])[selectedIndex]||'':'', correctAnswer:(q.options||[])[q.correctIndex]||'' };
+  return { questionId:q.id, testId:q.testId||null, sectionId:q.sectionId||null, order:q.order??null, text:q.text||'', options:(q.options||[]).slice(), correctIndex:q.correctIndex, selectedIndex:selectedIndex===undefined?null:selectedIndex, selectedAnswer:selectedIndex!==null&&selectedIndex!==undefined?(q.options||[])[selectedIndex]||'':'', correctAnswer:(q.options||[])[q.correctIndex]||'' };
 }
 async function renderImportantQuestions(){
   const qs=await Data.getImportantQuestions();
@@ -1895,9 +1960,28 @@ async function addOrEditImportant(id){
   if(!text||!options[0]||!options[1]||!options[2]||correctIndex<0){alert('Fill the question, at least A–C, and select the correct answer.');return;}
   const data={text,options:options[3]?options:options.slice(0,3),correctIndex}; if(id) await Data.updateImportantQuestion(id,data); else await Data.addImportantQuestion(data); state.modal=null; render();
 }
+async function getReportLocation(r){
+  const q=r.question||{};
+  const [test,section,questions]=await Promise.all([
+    q.testId?Data.getTest(q.testId):Promise.resolve(null),
+    q.sectionId?Data.getSection(q.sectionId):Promise.resolve(null),
+    q.testId?Data.getQuestions(q.testId):Promise.resolve([]),
+  ]);
+  const index=questions.findIndex(item=>item.id===q.questionId);
+  const questionNumber=q.order??(index>=0?(questions[index].order??index+1):(r.source?.questionNumber??'—'));
+  return {
+    questionNumber,
+    testTitle:test?.title||r.source?.testTitle||'—',
+    sectionName:section?.name||r.source?.sectionName||'—',
+  };
+}
+function reportLocationText(meta){
+  return `Question #${esc(meta.questionNumber)} · Test: ${esc(meta.testTitle)} · Section: ${esc(meta.sectionName)}`;
+}
 async function renderAdminReports(){
   const rs=await Data.getReports('open');
-  return `<h1 class="page-title">Reports</h1><p class="page-sub">Open reports and password requests submitted by users.</p>${rs.length?rs.map(r=>{
+  const located=await Promise.all(rs.map(async r=>({report:r,location:r.kind==='password'?null:await getReportLocation(r)})));
+  return `<h1 class="page-title">Reports</h1><p class="page-sub">Open reports and password requests submitted by users.</p>${located.length?located.map(({report:r,location})=>{
     if(r.kind==='password'){
       return `<div class="card report-card">
         <div class="row-between"><div><div class="badge badge-amber">Password request</div>
@@ -1910,21 +1994,27 @@ async function renderAdminReports(){
         </div>
       </div>`;
     }
-    return `<div class="card clickable report-card" data-action="go" data-hash="#/admin/reports/${r.id}"><div class="row-between"><div><div class="badge badge-red">Open</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12px;margin-top:5px;">#${esc(r.reportedByNumber||'—')} · ${fmtDateTime(r.createdAt)}</div></div><span style="color:var(--red);">${ICON.wrong}</span></div></div>`;
+    return `<div class="card clickable report-card" data-action="go" data-hash="#/admin/reports/${r.id}"><div class="row-between"><div><div class="badge badge-red">Open</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12px;margin-top:5px;">${reportLocationText(location)}</div><div class="muted" style="font-size:12px;margin-top:5px;">#${esc(r.reportedByNumber||'—')} · ${fmtDateTime(r.createdAt)}</div></div><span style="color:var(--red);">${ICON.wrong}</span></div></div>`;
   }).join(''):emptyBlock('No open reports.')}`;
 }
 async function renderAdminReportDetail(id){
-  const r=await Data.getReport(id); if(!r)return emptyBlock('Report not found.'); const q=r.question||{};
-  return `<h1 class="page-title">Report Details</h1><p class="page-sub">Submitted by ${esc(r.reportedByName||'User')} · #${esc(r.reportedByNumber||'—')} · ${fmtDateTime(r.createdAt)}</p><div class="card report-card"><div class="badge badge-red">Open Report</div><h3 style="margin:12px 0 8px;">${esc(q.text||'')}</h3><div class="muted" style="line-height:1.8;">User answer: <b>${esc(q.selectedAnswer||'Not answered')}</b><br/>System answer: <b>${esc(q.correctAnswer||'—')}</b><br/>Details: ${esc(r.note||'No extra details')}</div><div style="margin-top:12px;">${(q.options||[]).map((o,i)=>`<div class="option ${i===q.correctIndex?'correct':''} ${i===q.selectedIndex&&i!==q.correctIndex?'wrong':''}"><span class="letter">${letterOf(i)}</span><span>${esc(o)}</span></div>`).join('')}</div></div><div class="row-between" style="gap:10px;flex-wrap:wrap;"><button class="btn btn-primary" data-action="edit-report-question" data-id="${id}">${ICON.edit} Edit Question</button><button class="btn btn-amber" data-action="finish-report" data-id="${id}">${ICON.check} Finish Report</button></div>`;
+  const r=await Data.getReport(id); if(!r)return emptyBlock('Report not found.'); const q=r.question||{}; const location=await getReportLocation(r);
+  return `<h1 class="page-title">Report Details</h1><p class="page-sub">Submitted by ${esc(r.reportedByName||'User')} · #${esc(r.reportedByNumber||'—')} · ${fmtDateTime(r.createdAt)}</p><div class="card report-card"><div class="badge badge-red">Open Report</div><div class="muted" style="font-size:13px;margin-top:9px;">${reportLocationText(location)}</div>${r.reopenedAt?`<div class="muted" style="font-size:12.5px;margin-top:5px;">Reopened: ${fmtDateTime(r.reopenedAt)} · by #${esc(r.reopenedBy?.number||r.reopenedBy||'—')}</div>`:''}<h3 style="margin:12px 0 8px;">${esc(q.text||'')}</h3><div class="muted" style="line-height:1.8;">User answer: <b>${esc(q.selectedAnswer||'Not answered')}</b><br/>System answer: <b>${esc(q.correctAnswer||'—')}</b><br/>Details: ${esc(r.note||'No extra details')}</div><div style="margin-top:12px;">${(q.options||[]).map((o,i)=>`<div class="option ${i===q.correctIndex?'correct':''} ${i===q.selectedIndex&&i!==q.correctIndex?'wrong':''}"><span class="letter">${letterOf(i)}</span><span>${esc(o)}</span></div>`).join('')}</div></div><div class="row-between" style="gap:10px;flex-wrap:wrap;"><button class="btn btn-primary" data-action="edit-report-question" data-id="${id}">${ICON.edit} Edit Question</button><button class="btn btn-amber" data-action="finish-report" data-id="${id}">${ICON.check} Finish Report</button></div>`;
 }
 async function renderAdminReportHistory(){
   const rs=await Data.getReportHistory();
-  return `<h1 class="page-title">Report History</h1><p class="page-sub">All reports and password requests completed by administrators.</p>${rs.length?rs.map(r=>{
+  const located=await Promise.all(rs.map(async r=>({report:r,location:r.kind==='password'?null:await getReportLocation(r)})));
+  return `<h1 class="page-title">Report History</h1><p class="page-sub">All reports and password requests completed by administrators.</p>${located.length?located.map(({report:r,location})=>{
     if(r.kind==='password'){
       return `<div class="card"><div class="badge badge-amber">Password request</div><div style="font-weight:700;margin-top:8px;">#${esc(r.requestedByNumber||'—')}${r.requestedByName?(' · '+esc(r.requestedByName)):''}</div><div class="muted" style="font-size:12.5px;margin-top:6px;">Closed by #${esc(r.closedBy?.number||r.closedBy||'—')} · ${fmtDateTime(r.closedAt)}</div><div class="muted" style="font-size:13px;margin-top:8px;">${esc(r.changeSummary||'Processed')}</div></div>`;
     }
-    return `<div class="card"><div class="badge badge-green">Closed</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12.5px;margin-top:6px;">User #${esc(r.reportedByNumber||'—')} · Closed by #${esc(r.closedBy?.number||r.closedBy||'—')} · ${fmtDateTime(r.closedAt)}</div><div class="muted" style="font-size:13px;margin-top:8px;">${esc(r.changeSummary||'Question reviewed')}</div></div>`;
+    return `<div class="card clickable" data-action="go" data-hash="#/admin/report-history/${r.id}"><div class="badge ${r.reopenedAt?'badge-amber':'badge-green'}">${r.reopenedAt?'Reopened':'Closed'}</div><div style="font-weight:700;margin-top:8px;">${esc(r.question?.text||'Question report')}</div><div class="muted" style="font-size:12.5px;margin-top:6px;">${reportLocationText(location)}</div><div class="muted" style="font-size:12.5px;margin-top:6px;">User #${esc(r.reportedByNumber||'—')} · Closed by #${esc(r.closedBy?.number||r.closedBy||'—')} · ${fmtDateTime(r.closedAt)}</div>${r.reopenedAt?`<div class="muted" style="font-size:12.5px;margin-top:5px;">Reopened by #${esc(r.reopenedBy?.number||r.reopenedBy||'—')} · ${fmtDateTime(r.reopenedAt)}</div>`:''}<div class="muted" style="font-size:13px;margin-top:8px;">${esc(r.changeSummary||'Question reviewed')}</div></div>`;
   }).join(''):emptyBlock('No completed reports yet.')}`;
+}
+async function renderAdminReportHistoryDetail(id){
+  const r=await Data.getReportHistoryItem(id); if(!r)return emptyBlock('Report not found.'); const q=r.question||{}; const location=await getReportLocation(r);
+  const reopenButton=r.reopenedAt?`<span class="badge badge-amber">Already reopened</span>`:`<button class="btn btn-primary" data-action="reopen-report" data-id="${id}">${ICON.refresh} Reopen Report</button>`;
+  return `<h1 class="page-title">Report History Details</h1><p class="page-sub">Submitted by ${esc(r.reportedByName||'User')} · #${esc(r.reportedByNumber||'—')} · ${fmtDateTime(r.createdAt)}</p><div class="card report-card"><div class="badge ${r.reopenedAt?'badge-amber':'badge-green'}">${r.reopenedAt?'Reopened':'Closed Report'}</div><div class="muted" style="font-size:13px;margin-top:9px;">${reportLocationText(location)}</div><div class="muted" style="font-size:12.5px;margin-top:5px;">Closed by #${esc(r.closedBy?.number||r.closedBy||'—')} · ${fmtDateTime(r.closedAt)}</div>${r.reopenedAt?`<div class="muted" style="font-size:12.5px;margin-top:5px;">Reopened by #${esc(r.reopenedBy?.number||r.reopenedBy||'—')} · ${fmtDateTime(r.reopenedAt)}</div>`:''}<h3 style="margin:12px 0 8px;">${esc(q.text||'')}</h3><div class="muted" style="line-height:1.8;">User answer: <b>${esc(q.selectedAnswer||'Not answered')}</b><br/>System answer: <b>${esc(q.correctAnswer||'—')}</b><br/>Details: ${esc(r.note||'No extra details')}</div><div style="margin-top:12px;">${(q.options||[]).map((o,i)=>`<div class="option ${i===q.correctIndex?'correct':''} ${i===q.selectedIndex&&i!==q.correctIndex?'wrong':''}"><span class="letter">${letterOf(i)}</span><span>${esc(o)}</span></div>`).join('')}</div></div><div class="row-between" style="gap:10px;flex-wrap:wrap;">${reopenButton}<button class="btn btn-ghost" data-action="go" data-hash="#/admin/report-history">Back to Report History</button></div>`;
 }
 async function submitQuestionReport(){
   const m = state.modal;
@@ -1942,7 +2032,7 @@ async function submitQuestionReport(){
 function openQuestionReport(question, selectedIndex, source){
   const q = question || currentQuestion();
   const sel = selectedIndex!==undefined ? selectedIndex : (state.quiz ? state.quiz.answers[q.id] : undefined);
-  const src = source || (state.quiz ? { scope:state.quiz.scope, sectionName:state.quiz.sectionName, testTitle:state.quiz.testTitle } : {});
+  const src = source || (state.quiz ? { scope:state.quiz.scope, sectionName:state.quiz.sectionName, testTitle:state.quiz.testTitle, questionNumber:state.quiz.currentIndex+1 } : {});
   setModal({ type:'report', question:q, selectedIndex: sel===undefined?null:sel, source:src });
 }
 function openReportFromResultAction(qid){
@@ -1950,8 +2040,8 @@ function openReportFromResultAction(qid){
   if(!a) return;
   const w = (a.answers||[]).find(x=>x.questionId===qid);
   if(!w) return;
-  const q = { id:w.questionId, testId:a.testId||null, sectionId:a.sectionId||null, text:w.text, options:w.options, correctIndex:w.correctIndex };
-  openQuestionReport(q, w.selectedIndex, { scope:a.scopeType, sectionName:a.sectionName, testTitle:a.testTitle });
+  const q = { id:w.questionId, testId:w.testId||a.testId||null, sectionId:w.sectionId||a.sectionId||null, order:w.order??null, text:w.text, options:w.options, correctIndex:w.correctIndex };
+  openQuestionReport(q, w.selectedIndex, { scope:a.scopeType, sectionName:a.sectionName, testTitle:a.testTitle, questionNumber:w.order??null });
 }
 function openQuestionTextModal(){
   const q = currentQuestion();
@@ -1960,6 +2050,11 @@ function openQuestionTextModal(){
 }
 async function openReportEditor(id){ const r=await Data.getReport(id); if(r&&r.question){setModal({type:'question',question:{id:r.question.questionId,testId:r.question.testId,sectionId:r.question.sectionId,text:r.question.text,options:r.question.options,correctIndex:r.question.correctIndex},editId:r.question.questionId,reportId:id});} }
 async function finishReport(id){ const r=await Data.getReport(id); if(!r)return; if(confirm('Finish this report and move it to Report History?')){await Data.finishReport(r,{number:state.user.number,name:state.user.name||''});toast('Report completed');navigate('#/admin/reports');} }
+async function reopenReportAction(id){
+  const newId=await Data.reopenReport(id,{number:state.user.number,name:state.user.name||''});
+  if(newId){toast('Report reopened');navigate(`#/admin/reports/${newId}`);}
+  else toast('Could not reopen this report');
+}
 async function renameUser(id,current){ const n=prompt('New user name',current||''); if(n&&n.trim()){await updateDoc(doc(usersCol,id),{name:n.trim()});render();} }
 async function toggleUserAdmin(id,current){ await updateDoc(doc(usersCol,id),{isAdmin:!current}); render(); }
 async function deleteUser(id){ if(id===ADMIN_NUMBER){toast('The primary admin cannot be deleted');return;} if(confirm('Delete this user?')){await deleteDoc(doc(usersCol,id));render();} }
@@ -2165,9 +2260,12 @@ async function handleQuestionSubmit(editId){
 async function onAppClick(e){
   const t = e.target.closest('[data-action]');
   if(!t) return;
+  const action = t.dataset.action;
+  // Backdrop actions must only run when the backdrop itself was clicked.
+  // Otherwise preventDefault here cancels native clicks inside modals (including radios).
+  if((action==='modal-backdrop' || action==='menu-backdrop') && e.target !== t) return;
   if(t.tagName==='INPUT'){ return; } // let checkboxes toggle natively; handled by the 'change' listener
   e.preventDefault();
-  const action = t.dataset.action;
   switch(action){
     case 'go': navigate(t.dataset.hash); break;
     case 'back': goBack(); break;
@@ -2210,11 +2308,13 @@ async function onAppClick(e){
     case 'report-question': openQuestionReport(); break;
     case 'show-question-text': openQuestionTextModal(); break;
     case 'report-result-question': openReportFromResultAction(t.dataset.qid); break;
+    case 'toggle-result-save': await toggleResultSave(t.dataset.qid); break;
     case 'submit-report': await submitQuestionReport(); break;
     case 'start-important': await startImportantReview(); break;
     case 'edit-current-question': openQuestionModal(currentQuestion().testId,currentQuestion().sectionId); state.modal.editId=currentQuestion().id; state.modal.question=currentQuestion(); render(); break;
     case 'edit-report-question': await openReportEditor(t.dataset.id); break;
     case 'finish-report': await finishReport(t.dataset.id); break;
+    case 'reopen-report': await reopenReportAction(t.dataset.id); break;
     case 'rename-user': await renameUser(t.dataset.id,t.dataset.name); break;
     case 'toggle-user-admin': await toggleUserAdmin(t.dataset.id,t.dataset.admin==='true'); break;
     case 'delete-user': await deleteUser(t.dataset.id); break;
@@ -2260,9 +2360,14 @@ async function onAppSubmit(e){
     if(number === ADMIN_NUMBER){
       let u = await Data.getUser(ADMIN_NUMBER);
       if(!u) u = await Data.createUser(ADMIN_NUMBER, 'Admin', true);
-      state.user = u; state.viewMode='admin';
-      saveSession(u);
-      navigate('#/admin/home');
+      if(u.password){
+        state.pendingLoginUser = u;
+        setModal({ type:'passwordPrompt' });
+      } else {
+        state.user = u; state.viewMode='admin';
+        saveSession(u);
+        navigate('#/admin/home');
+      }
     } else {
       let u = await Data.getUser(number);
       if(u){
