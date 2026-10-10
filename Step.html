@@ -303,9 +303,46 @@ table.simple tr:last-child td{ border-bottom:none; }
 /* ---- notifications dropdown (admin home) ---- */
 .notif-row{ padding:10px 0; border-top:1px solid var(--border-soft); }
 .notif-row:first-child{ border-top:none; }
+
+/* ---- animated light/dark theme ---- */
+:root[data-theme="light"]{
+  --bg:#F4F6FB; --bg-2:#E9EDF5;
+  --surface:#FFFFFF; --surface-2:#F0F3F9; --surface-3:#E3E8F2;
+  --text:#20263A; --text-muted:#59627A; --text-faint:#858DA3;
+  --teal:#247F78; --teal-dim:#B9DED9;
+  --amber:#C78A16; --amber-dim:#FFF0C9;
+  --red:#C8425C; --red-dim:#FBE0E6;
+  --green:#25834D; --green-dim:#DDF4E5;
+  --border:rgba(32,38,58,.14); --border-soft:rgba(32,38,58,.08);
+  --shadow:0 10px 30px rgba(35,45,70,.12);
+}
+:root[data-theme="light"] body{background:radial-gradient(circle at 20% -10%,#FFFFFF 0%,var(--bg) 45%,var(--bg-2) 100%);}
+:root[data-theme="light"] .topbar{background:rgba(244,246,251,.88);}
+.theme-toggle{width:48px;height:40px;border:1px solid var(--border);border-radius:999px;background:var(--surface);display:flex;align-items:center;padding:3px;cursor:pointer;transition:background .25s,border-color .25s;overflow:hidden;}
+.theme-toggle .theme-knob{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface-3);color:var(--amber);transition:transform .28s cubic-bezier(.2,.8,.2,1),background .25s,color .25s;box-shadow:0 2px 7px rgba(0,0,0,.12);}
+.theme-toggle .theme-knob svg{width:17px;height:17px;transition:transform .35s;}
+:root[data-theme="light"] .theme-toggle .theme-knob{transform:translateX(8px);background:var(--amber);color:#fff;}
+:root[data-theme="light"] .theme-toggle .theme-knob svg{transform:rotate(35deg);}
+.theme-toggle:active .theme-knob{transform:scale(.9);}
+.theme-toggle:focus-visible{outline:2px solid var(--teal);outline-offset:3px;}
+.theme-toggle .theme-knob{animation:themePop .32s ease;}
+@keyframes themePop{0%{scale:.75}65%{scale:1.08}100%{scale:1}}
+.result-filters{display:flex;gap:8px;margin:0 0 14px;padding:5px;background:var(--surface-2);border:1px solid var(--border);border-radius:13px;}
+.result-filter{flex:1;border:0;border-radius:9px;padding:10px 8px;background:transparent;color:var(--text-muted);font-weight:700;transition:background .18s,color .18s,transform .18s;}
+.result-filter:hover{transform:translateY(-1px);}
+.result-filter.active{background:var(--surface);color:var(--amber);box-shadow:0 2px 8px rgba(0,0,0,.08);}
+@media(prefers-reduced-motion:reduce){.theme-toggle,.theme-knob,.theme-knob svg,.result-filter{transition:none!important;animation:none!important;}}
 </style>
 </head>
 <body>
+<script>
+(function(){
+  try {
+    const saved = localStorage.getItem('step-theme');
+    document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'dark';
+  } catch(e) { document.documentElement.dataset.theme = 'dark'; }
+})();
+</script>
 <div id="app">
   <div class="center-screen"><div class="spinner"></div></div>
 </div>
@@ -873,6 +910,7 @@ const state = {
   cache: {},        // misc per-render cache
   settings: { liveGrading:false }, // global app settings loaded from Firestore
   viewMode: 'user', // admin users can switch between user and admin capabilities
+  resultFilter: 'all',
 };
 
 const app = document.getElementById('app');
@@ -918,7 +956,14 @@ function renderTopbar(){
       <div class="step-mark"><i></i><i></i><i></i><i></i></div>
       <span class="wordmark">STEP<span>.</span></span>
     </div>
-    <button class="icon-btn" data-action="open-menu" title="Menu">${ICON.menu}</button>
+    <div style="display:flex;align-items:center;gap:7px;">
+      <button class="theme-toggle" data-action="toggle-theme" title="Switch to ${document.documentElement.dataset.theme==='light'?'dark':'light'} mode" aria-label="Switch theme" aria-pressed="${document.documentElement.dataset.theme==='light'}">
+        <span class="theme-knob">${document.documentElement.dataset.theme==='light'
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/></svg>'}</span>
+      </button>
+      <button class="icon-btn" data-action="open-menu" title="Menu">${ICON.menu}</button>
+    </div>
   </div>`;
 }
 
@@ -1645,6 +1690,7 @@ async function renderResult(attemptId){
   }
   const pct = a.total ? Math.round((a.score/a.total)*100) : 0;
   const answers = a.answers||[];
+  state.resultFilter = state.resultFilter || 'all';
   let nextTestHtml = '';
   if(a.scopeType==='test' && a.sectionId && a.testId){
     const tests = await Data.getTests(a.sectionId);
@@ -1678,11 +1724,18 @@ async function renderResult(attemptId){
       </div>
     </div>
   </div>
-  ${answers.length ? `<h2 style="margin-top:10px;">Review Questions</h2>` : ''}
+  ${answers.length ? `<h2 style="margin-top:10px;">Review Questions</h2>
+    <div class="result-filters" role="group" aria-label="Filter review questions">
+      <button class="result-filter ${state.resultFilter==='all'?'active':''}" data-action="result-filter" data-filter="all" aria-pressed="${state.resultFilter==='all'}">All <span class="faint">(${answers.length})</span></button>
+      <button class="result-filter ${state.resultFilter==='wrong'?'active':''}" data-action="result-filter" data-filter="wrong" aria-pressed="${state.resultFilter==='wrong'}">Wrong <span class="faint">(${answers.filter(w=>!w.isCorrect).length})</span></button>
+      <button class="result-filter ${state.resultFilter==='right'?'active':''}" data-action="result-filter" data-filter="right" aria-pressed="${state.resultFilter==='right'}">Right <span class="faint">(${answers.filter(w=>w.isCorrect).length})</span></button>
+    </div>` : ''}
+  <div id="result-answer-list">
   ${answers.map(w=>{
     const isSaved=state.cache.resultSavedSet.has(w.questionId);
+    const matchesFilter = state.resultFilter==='all' || (state.resultFilter==='wrong' ? !w.isCorrect : !!w.isCorrect);
     return `
-    <div class="card">
+    <div class="card result-answer-card" data-result-answer data-correct="${!!w.isCorrect}" style="${matchesFilter?'':'display:none;'}">
       <div class="row-between" style="align-items:flex-start;gap:10px;">
         <div class="q-text" style="font-size:15px;margin-bottom:0;flex:1;">${esc(w.text)}</div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
@@ -1700,6 +1753,7 @@ async function renderResult(attemptId){
       </div>
     </div>`;
   }).join('')}
+  </div>
   `;
 }
 async function toggleResultSave(qid){
@@ -2271,6 +2325,34 @@ async function onAppClick(e){
     case 'back': goBack(); break;
     case 'logout': doLogout(); break;
     case 'open-menu': state.menuOpen = true; renderChromeOnly(); break;
+    case 'toggle-theme': {
+      const nextTheme = document.documentElement.dataset.theme==='light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = nextTheme;
+      try{ localStorage.setItem('step-theme', nextTheme); }catch(err){}
+      renderChromeOnly();
+      break;
+    }
+    case 'result-filter': {
+      const filter = t.dataset.filter || 'all';
+      state.resultFilter = filter;
+      // Update the result review in-place: no full render(), no Firebase reads.
+      const filters = t.closest('.result-filters');
+      if(filters){
+        filters.querySelectorAll('[data-action="result-filter"]').forEach(btn=>{
+          const active = btn.dataset.filter === filter;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', String(active));
+        });
+      }
+      const list = document.getElementById('result-answer-list');
+      if(list){
+        list.querySelectorAll('[data-result-answer]').forEach(card=>{
+          const correct = card.dataset.correct === 'true';
+          card.style.display = filter==='all' || (filter==='wrong' && !correct) || (filter==='right' && correct) ? '' : 'none';
+        });
+      }
+      break;
+    }
     case 'close-menu': state.menuOpen = false; renderChromeOnly(); break;
     case 'menu-backdrop': if(e.target === t){ state.menuOpen = false; renderChromeOnly(); } break;
     case 'modal-backdrop': if(e.target === t) closeModal(); break;
