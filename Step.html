@@ -539,6 +539,13 @@ function initDragReorder(container, onReorder){
   container.addEventListener('pointerdown', onDown);
 }
 function setupDragReorders(){
+  const sectionsCont = document.getElementById('sections-drag-container');
+  if(sectionsCont){
+    initDragReorder(sectionsCont, async (ids)=>{
+      await Data.reorderSections(ids);
+      render();
+    });
+  }
   const testsCont = document.getElementById('tests-drag-container');
   if(testsCont){
     initDragReorder(testsCont, async (ids)=>{
@@ -689,17 +696,28 @@ const Data = {
   // sections
   async getSections(){
     const snap = await getDocs(sectionsCol);
-    return sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
+    const sections = sortByCreatedAt(snap.docs.map(d=>({id:d.id,...d.data()})), 'asc');
+    sections.forEach((section,index)=>{ if(typeof section.order!=='number') section.order=index+1; });
+    return sortByOrder(sections);
   },
   async getSection(id){
     const snap = await getDoc(doc(sectionsCol,id));
     return snap.exists() ? {id:snap.id,...snap.data()} : null;
   },
-  async addSection(name){
-    const ref = await addDoc(sectionsCol, { name, createdAt: serverTimestamp() });
+  async addSection(name, order){
+    if(order===undefined || order===null || isNaN(order)){
+      const existing = await Data.getSections();
+      order = existing.length ? Math.max(...existing.map(s=>(typeof s.order==='number'?s.order:0)))+1 : 1;
+    }
+    const ref = await addDoc(sectionsCol, { name, order, createdAt: serverTimestamp() });
     return ref.id;
   },
-  async updateSection(id, name){ await updateDoc(doc(sectionsCol,id), { name }); },
+  async updateSection(id, data){ await updateDoc(doc(sectionsCol,id), data); },
+  async reorderSections(orderedIds){
+    const batch = writeBatch(db);
+    orderedIds.forEach((id,i)=> batch.update(doc(sectionsCol,id), { order:i+1 }));
+    await batch.commit();
+  },
   async deleteSection(id){
     const tests = await Data.getTests(id);
     await Promise.all(tests.map(t => Data.deleteTest(t.id)));
@@ -1019,8 +1037,8 @@ function renderModal(){
       </div>
       ${m.showOrder ? `
       <div class="field">
-        <label>Test number — sets its display order inside the section</label>
-        <input type="number" id="modal-input-order" value="${(m.orderValue!==undefined && m.orderValue!==null)?m.orderValue:''}" placeholder="auto (last)" />
+        <label>${esc(m.orderLabel||'Test number — sets its display order inside the section')}</label>
+        <input type="number" id="modal-input-order" min="1" step="1" value="${(m.orderValue!==undefined && m.orderValue!==null)?m.orderValue:''}" placeholder="auto (last)" />
       </div>` : ''}
       <div class="modal-actions">
         <button class="btn btn-ghost" data-action="modal-cancel">Cancel</button>
@@ -1401,7 +1419,7 @@ async function renderSections(){
     `<div class="grid grid-2">${sections.map(s=>`
       <div class="card clickable" data-action="go" data-hash="#/user/sections/${s.id}">
         <div class="row-between">
-          <div style="font-weight:700;font-size:16px;">${esc(s.name)}</div>
+          <div style="font-weight:700;font-size:16px;"><span class="order-badge">${(s.order!=null?s.order:'—')}</span>${esc(s.name)}</div>
           <span style="color:var(--teal);">${ICON.section}</span>
         </div>
       </div>`).join('')}</div>`}
@@ -1886,19 +1904,24 @@ async function renderAdminSections(){
   const sections = await Data.getSections();
   return `
   <h1 class="page-title">Manage Sections</h1>
-  <p class="page-sub">Sections group tests together for your users.</p>
+  <p class="page-sub">Sections group tests together. Hold the handle and drag to reorder, or edit a section number.</p>
   <button class="btn btn-primary" style="margin-bottom:16px;" data-action="add-section">${ICON.plus} Add Section</button>
   ${sections.length===0 ? emptyBlock('No sections yet — add your first one.') :
-    sections.map(s=>`
-      <div class="card">
-        <div class="row-between">
-          <div class="clickable" style="flex:1;font-weight:700;font-size:15.5px;" data-action="go" data-hash="#/admin/sections/${s.id}/tests">${esc(s.name)}</div>
-          <div style="display:flex;gap:6px;">
-            <button class="icon-btn" data-action="edit-section" data-id="${s.id}" data-name="${esc(s.name)}">${ICON.edit}</button>
-            <button class="icon-btn" data-action="delete-section" data-id="${s.id}" data-name="${esc(s.name)}">${ICON.trash}</button>
+    `<div id="sections-drag-container">
+    ${sections.map(s=>`
+      <div class="drag-row" data-id="${s.id}">
+        <div class="drag-handle" title="Hold and drag to reorder">${ICON.drag}</div>
+        <div class="drag-item-body">
+          <div class="row-between">
+            <div class="clickable" style="flex:1;font-weight:700;font-size:15.5px;" data-action="go" data-hash="#/admin/sections/${s.id}/tests"><span class="order-badge">${(s.order!=null?s.order:'—')}</span>${esc(s.name)}</div>
+            <div style="display:flex;gap:6px;">
+              <button class="icon-btn" data-action="edit-section" data-id="${s.id}" data-name="${esc(s.name)}" data-order="${s.order!=null?s.order:''}">${ICON.edit}</button>
+              <button class="icon-btn" data-action="delete-section" data-id="${s.id}" data-name="${esc(s.name)}">${ICON.trash}</button>
+            </div>
           </div>
         </div>
-      </div>`).join('')}`;
+      </div>`).join('')}
+    </div>`}`;
 }
 
 async function renderAdminSettings(){
@@ -2184,10 +2207,10 @@ function doLogout(){
 
 /* ============ ADMIN MODAL OPENERS ============ */
 function openAddSectionModal(){
-  setModal({ type:'textInput', title:'Add Section', label:'Section name', placeholder:'e.g. Cardiology', confirmLabel:'Add', purpose:'addSection' });
+  setModal({ type:'textInput', title:'Add Section', label:'Section name', placeholder:'e.g. Cardiology', confirmLabel:'Add', purpose:'addSection', showOrder:true, orderLabel:'Section number — sets its display order', orderValue:null });
 }
-function openEditSectionModal(id, name){
-  setModal({ type:'textInput', title:'Rename Section', label:'Section name', value:name, confirmLabel:'Save', purpose:'editSection', id });
+function openEditSectionModal(id, name, order){
+  setModal({ type:'textInput', title:'Edit Section', label:'Section name', value:name, confirmLabel:'Save', purpose:'editSection', id, showOrder:true, orderLabel:'Section number — sets its display order', orderValue:(order!==undefined && order!=='' && !isNaN(order)) ? order : null });
 }
 function openDeleteSectionConfirm(id, name){
   setModal({ type:'confirm', title:'Delete Section', message:`Delete "${name}" and all its tests & questions? This can't be undone.`, confirmLabel:'Delete', purpose:'deleteSection', id });
@@ -2221,8 +2244,18 @@ async function handleModalConfirm(){
     const input = document.getElementById('modal-input-val');
     const val = input ? input.value.trim() : '';
     if(!val) return;
-    if(m.purpose==='addSection'){ await Data.addSection(val); }
-    else if(m.purpose==='editSection'){ await Data.updateSection(m.id, val); }
+    if(m.purpose==='addSection'){
+      const orderInput = document.getElementById('modal-input-order');
+      const orderVal = orderInput && orderInput.value!=='' ? parseInt(orderInput.value,10) : undefined;
+      await Data.addSection(val, orderVal);
+    }
+    else if(m.purpose==='editSection'){
+      const orderInput = document.getElementById('modal-input-order');
+      const orderVal = orderInput && orderInput.value!=='' ? parseInt(orderInput.value,10) : null;
+      const data = { name:val };
+      if(orderVal!==null && !isNaN(orderVal) && orderVal>0) data.order = orderVal;
+      await Data.updateSection(m.id, data);
+    }
     else if(m.purpose==='setUserPassword'){
       await Data.setUserPassword(m.id, val);
       toast('Password saved');
@@ -2375,7 +2408,7 @@ async function onAppClick(e){
     case 'review-jump': { state.modal = null; gotoQuestion(parseInt(t.dataset.index,10)); break; }
 
     case 'add-section': openAddSectionModal(); break;
-    case 'edit-section': openEditSectionModal(t.dataset.id, t.dataset.name); break;
+    case 'edit-section': openEditSectionModal(t.dataset.id, t.dataset.name, t.dataset.order); break;
     case 'delete-section': openDeleteSectionConfirm(t.dataset.id, t.dataset.name); break;
     case 'add-test': openAddTestChoiceModal(t.dataset.sectionId); break;
     case 'edit-test-title': openEditTestTitleModal(t.dataset.id, t.dataset.sectionId, t.dataset.title, t.dataset.order); break;
@@ -2501,7 +2534,7 @@ function saveOfflineBlob(b){
 }
 async function downloadOfflineData(){
   const [secSnap, testSnap, qSnap] = await Promise.all([ getDocs(sectionsCol), getDocs(testsCol), getDocs(questionsCol) ]);
-  const sections = secSnap.docs.map(d=>({ id:d.id, name:d.data().name }));
+  const sections = sortByOrder(sortByCreatedAt(secSnap.docs.map(d=>({ id:d.id, name:d.data().name, createdAt:d.data().createdAt, order:d.data().order })), 'asc').map((section,index)=>({...section,order:(typeof section.order==='number'?section.order:index+1)})));
   const tests = testSnap.docs.map(d=>({ id:d.id, sectionId:d.data().sectionId, title:d.data().title, order: (typeof d.data().order==='number'?d.data().order:0) }));
   const questions = qSnap.docs.map(d=>({
     id:d.id, testId:d.data().testId, sectionId:d.data().sectionId, text:d.data().text,
@@ -2548,10 +2581,10 @@ function renderOfflineSections(){
   <p class="page-sub">Last synced: ${blob.syncedAt ? new Date(blob.syncedAt).toLocaleString('en-US') : '—'}</p>
   <button class="btn btn-amber" style="margin-bottom:16px;" data-action="start-offline-quiz" data-scope="offlineAll">Test All Offline Sections</button>
   <div class="grid grid-2">
-  ${blob.sections.map(s=>{
+  ${sortByOrder(blob.sections.slice()).map(s=>{
     const count = (blob.questions||[]).filter(q=>q.sectionId===s.id).length;
     return `<div class="card clickable" data-action="go" data-hash="#/user/offline/${s.id}">
-      <div class="row-between"><div style="font-weight:700;font-size:16px;">${esc(s.name)}</div><span style="color:var(--teal);">${ICON.section}</span></div>
+      <div class="row-between"><div style="font-weight:700;font-size:16px;"><span class="order-badge">${(s.order!=null?s.order:'—')}</span>${esc(s.name)}</div><span style="color:var(--teal);">${ICON.section}</span></div>
       <div class="muted" style="font-size:12.5px;margin-top:6px;">${count} question(s)</div>
     </div>`;
   }).join('')}
